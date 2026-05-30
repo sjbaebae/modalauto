@@ -27,7 +27,7 @@ from autoresearch.experiments.matmul.matmul import matmul
 from autoresearch.experiments.matmul.loop import buckets, verify_general
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 ROLE_ALIASES = {
     "creative-explorer": "creative_explorer",
     "topline-manager": "topline_manager",
@@ -83,7 +83,7 @@ def runner_command(args: argparse.Namespace, run_id: str, hyp_path: Path) -> lis
     command = runner.get("command") or "experiments/matmul/loop.py"
     command_path = Path(command)
     if not command_path.is_absolute():
-        command_path = REPO_ROOT / "autoresearch" / command_path
+        command_path = REPO_ROOT / command_path
     base_args = experiment_config.render_workflow_args(runner.get("args", []), args.experiment_layout)
     return [
         sys.executable,
@@ -1443,7 +1443,7 @@ def spawn_agent(args: argparse.Namespace, role: str) -> str:
     stderr = (log_dir / f"{agent_id}.err.log").open("a")
     cmd = [
         sys.executable,
-        str(REPO_ROOT / "autoresearch" / "bin" / "autoresearch-agent"),
+        str(REPO_ROOT / "bin" / "autoresearch-agent"),
         role,
         "--experiment-root",
         str(args.experiment_root),
