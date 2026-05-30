@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Live JSON API for autoresearch journals used by EvoFlow."""
+"""Live JSON API for autoresearch journals used by the frontend."""
 
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-from autoresearch import experiment_config
+from autoresearch.backend import experiment_config
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-AUTORESEARCH_ROOT = REPO_ROOT / "autoresearch"
-VIZ_SCRIPTS = AUTORESEARCH_ROOT / "visualization" / "evoflow" / "scripts"
-if str(VIZ_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(VIZ_SCRIPTS))
+AUTORESEARCH_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = AUTORESEARCH_ROOT.parent
+FRONTEND_SCRIPTS = AUTORESEARCH_ROOT / "frontend" / "scripts"
+if str(FRONTEND_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(FRONTEND_SCRIPTS))
 
 from export_real_data import build_payload, detect_db  # noqa: E402
 
@@ -37,12 +37,11 @@ def pick_journal(configured: Path | None = None) -> Path | None:
     if configured:
         path = configured.expanduser().resolve()
         return path if detect_db(path).exists() else None
-    env = os.environ.get("EVOFLOW_JOURNAL")
+    env = os.environ.get("FRONTEND_JOURNAL")
     if env:
         path = Path(env).expanduser().resolve()
         return path if detect_db(path).exists() else None
     candidates = [path for path in (AUTORESEARCH_ROOT / "experiments").glob("*/journal") if detect_db(path).exists()]
-    candidates.extend(path for path in AUTORESEARCH_ROOT.glob("*_journal*") if detect_db(path).exists())
     return max(candidates, key=journal_mtime_ns) if candidates else None
 
 
@@ -67,7 +66,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
-        if path not in {"/api/evoflow-data", "/api/status"}:
+        if path not in {"/api/data", "/api/status"}:
             self.send_json({"error": "not_found"}, 404)
             return
         journal = pick_journal(self.journal)
@@ -87,13 +86,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--experiment-root", type=Path, help="experiment directory containing journal/ and worktrees/")
     parser.add_argument("--journal", type=Path)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=int(os.environ.get("EVOFLOW_API_PORT", "5175")))
+    parser.add_argument("--port", type=int, default=int(os.environ.get("FRONTEND_API_PORT", "5175")))
     args = parser.parse_args(argv)
     if not args.journal and (args.experiment or args.experiment_root):
         args.journal = experiment_config.layout(args.experiment, args.experiment_root).journal_dir
     Handler.journal = args.journal
     server = ThreadingHTTPServer((args.host, args.port), Handler)
-    print(f"EvoFlow API http://{args.host}:{args.port}/api/evoflow-data")
+    print(f"Frontend API http://{args.host}:{args.port}/api/data")
     print(f"Journal: {pick_journal(args.journal) or 'none found'}")
     server.serve_forever()
     return 0

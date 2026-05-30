@@ -16,10 +16,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from autoresearch import experiment_config
+from autoresearch.backend import experiment_config
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_BOARD = experiment_config.DEFAULT_BOARD
 
 

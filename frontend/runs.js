@@ -1,4 +1,4 @@
-/* EvoFlow — named run registry for the Compare page.
+/* Autoresearch — named run registry for the Compare page.
    Each run is an independent world built from the shared generator
    (window.buildWorld) with different search parameters, so they tell
    genuinely different stories: how far they got, how fast, how messy. */
@@ -10,9 +10,9 @@
       id: 'panel', label: 'Panel-first',
       desc: 'Rectangular panel families, then local trace optimization.',
       // Reuse the dashboard's default world only if it's the mock one; if a
-      // (possibly empty) real payload set window.EVO, build a fresh mock world.
-      world: (window.EVO && window.EVO.nodes && window.EVO.nodes.length)
-        ? window.EVO
+      // (possibly empty) real payload set window.APP, build a fresh mock world.
+      world: (window.APP && window.APP.nodes && window.APP.nodes.length)
+        ? window.APP
         : B(20260530, { label: 'Panel-first', tag: 'panel-first' }),
     },
     {

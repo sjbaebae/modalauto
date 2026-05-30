@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-AUTORESEARCH_ROOT = REPO_ROOT / "autoresearch"
+AUTORESEARCH_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = AUTORESEARCH_ROOT.parent
 EXPERIMENTS_ROOT = AUTORESEARCH_ROOT / "experiments"
 DEFAULT_EXPERIMENT = "matmul_reference"
 

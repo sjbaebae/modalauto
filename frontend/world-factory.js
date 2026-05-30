@@ -1,5 +1,5 @@
 (function () {
-  function evoflowWorld(payload) {
+  function appWorld(payload) {
     function statusAt(n, T) {
       if (T < n.tProposed) return 'unborn';
       if (n.abandoned) return T > n.tProposed + 18 ? 'abandoned' : 'queued';
@@ -55,5 +55,5 @@
     payload.fns = { statusAt, bornCount, agentActivity, frontierAt, fitBin };
     return payload;
   }
-  window.evoflowWorld = evoflowWorld;
+  window.appWorld = appWorld;
 })();

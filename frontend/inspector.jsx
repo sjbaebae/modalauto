@@ -2,7 +2,7 @@
    when a node is selected (metrics, buckets, lineage, trace, run playback). */
 (function () {
   const { useState, useMemo, useEffect } = React;
-  const E = window.EVO;
+  const E = window.APP;
   const Section = window.SBSection;
   const roleCol = window.evoRoleCol;
   const ROLE_LABEL = window.EVO_ROLE_LABEL;

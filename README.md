@@ -4,9 +4,10 @@ Core orchestration code for running agentic research loops against reproducible 
 
 ## Layout
 
-The repository root contains reusable autoresearch code:
+The repository root is split by responsibility:
 
-- `agent_runtime.py`, `team_journal.py`, `message_board.py`, `research_memory.py`: core coordination loop.
+- `backend/`: core Python orchestration loop.
+- `frontend/`: the browser app and its API/support scripts.
 - `bin/`: command-line entrypoints.
 - `experiments/`: experiment-specific folders.
 

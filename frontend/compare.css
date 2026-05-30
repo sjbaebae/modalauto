@@ -1,6 +1,6 @@
 /* ============================================================
-   EvoFlow — Compare page layout
-   (depends on evoflow.css + evoflow-app.css)
+   Autoresearch — Compare page layout
+   (depends on tokens.css + layout.css)
    ============================================================ */
 .capp { display: grid; grid-template-rows: auto 1fr; height: 100vh; width: 100vw; overflow: hidden; background: var(--bg-void); }
 
@@ -127,4 +127,4 @@
 .bcmp-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: var(--ink-3); text-transform: capitalize; }
 .bcmp-legend i { width: 8px; height: 8px; border-radius: 2px; }
 
-/* multipage navbar lives in evoflow-app.css (.nav-tabs) — shared with the dashboard */
+/* multipage navbar lives in layout.css (.nav-tabs) — shared with the dashboard */

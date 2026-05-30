@@ -58,7 +58,7 @@ The manager uses queue pressure:
   then mark itself `dead` in the journal. Full idle shutdown is explicit via
   `scale-plan --allow-idle-retire`.
 
-Current default policy is in `autoresearch/team_journal.py`:
+Current default policy is in `autoresearch/backend/team_journal.py`:
 
 ```text
 implementors ~= ceil((queued_hypotheses + claimed_hypotheses) / 3)

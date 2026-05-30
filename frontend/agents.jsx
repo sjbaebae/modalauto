@@ -3,7 +3,7 @@
    collapsible Section + Chevron + role helpers used by the inspector too. */
 (function () {
   const { useState, useMemo, useRef, useEffect } = React;
-  const E = window.EVO;
+  const E = window.APP;
 
   const ROLE_ORDER = ['topline_manager', 'meta_agent', 'insight_generator', 'creative_explorer', 'global_searcher', 'implementor', 'verifier', 'researcher'];
   const ROLE_LABEL = { topline_manager: 'manager', meta_agent: 'meta', insight_generator: 'insight', creative_explorer: 'explorer', global_searcher: 'searcher', implementor: 'implementor', verifier: 'verifier', researcher: 'researcher' };

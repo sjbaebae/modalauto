@@ -19,15 +19,15 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from autoresearch import experiment_config
-from autoresearch import message_board
-from autoresearch import research_memory
-from autoresearch import team_journal
+from autoresearch.backend import experiment_config
+from autoresearch.backend import message_board
+from autoresearch.backend import research_memory
+from autoresearch.backend import team_journal
 from autoresearch.experiments.matmul_reference.matmul import matmul
 from autoresearch.experiments.matmul_reference.loop import buckets, verify_general
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 ROLE_ALIASES = {
     "creative-explorer": "creative_explorer",
     "topline-manager": "topline_manager",

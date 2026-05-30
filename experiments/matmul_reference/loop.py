@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from autoresearch import experiment_config
+from autoresearch.backend import experiment_config
 from autoresearch.experiments.matmul_reference.matmul import matmul
 
 

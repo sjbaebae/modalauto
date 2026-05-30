@@ -2,7 +2,7 @@
    Color & size encode fitness. Pan (drag) + zoom (wheel). Click a node to inspect. */
 (function () {
   const { useState, useRef, useEffect, useMemo, useCallback } = React;
-  const E = window.EVO;
+  const E = window.APP;
 
   const VW = 2200, VH = 860, PAD = 70;
   const SMIN = E.meta.best == null ? E.meta.baseline : E.meta.best, SMAX = E.meta.baseline;

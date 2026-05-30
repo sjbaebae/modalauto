@@ -1,4 +1,4 @@
-/* EvoFlow app — header + evotree + live agent rail + inspector + time scrubber. */
+/* Autoresearch app — header + evotree + live agent rail + inspector + time scrubber. */
 (function () {
   const { useState, useEffect, useRef, useMemo, useCallback } = React;
   let E = null;
@@ -32,7 +32,7 @@
         React.createElement('circle', { cx: 28, cy: 20, r: 2.4, fill: 'var(--fit-4)' }),
         React.createElement('circle', { cx: 28, cy: 28, r: 2.2, fill: 'var(--fit-3)' }),
         React.createElement('path', { d: 'M9 17 L14.6 9 M9 17 L14.6 25 M19.4 8 L25 6.5 M19.4 8 L26 19 M19.4 26 L26 27.5', stroke: 'var(--line-strong)', strokeWidth: 1.2 })),
-      React.createElement('span', { className: 'logo-name' }, 'EvoFlow'));
+      React.createElement('span', { className: 'logo-name' }, 'Autoresearch'));
   }
 
   function StatTiles({ T }) {
@@ -56,7 +56,7 @@
       let stopped = false;
       async function load() {
         try {
-          const res = await fetch('/api/evoflow-changelog?ts=' + Date.now(), { cache: 'no-store' });
+          const res = await fetch('/api/changelog?ts=' + Date.now(), { cache: 'no-store' });
           if (!res.ok) return;
           const next = await res.json();
           if (!stopped) setInfo(next);
@@ -207,7 +207,7 @@
   }
 
   function boot() {
-    E = window.EVO;
+    E = window.APP;
     if (!E) {
       ReactDOM.createRoot(document.getElementById('root')).render(
         React.createElement('div', { className: 'app app-empty' },
@@ -216,7 +216,7 @@
               React.createElement(Logo),
               React.createElement('div', { className: 'prob' },
                 React.createElement('span', { className: 'prob-name' }, 'No live autoresearch data'),
-                React.createElement('span', { className: 'prob-sub mono' }, 'start the EvoFlow server with a journal DB'))))))
+                React.createElement('span', { className: 'prob-sub mono' }, 'start the Autoresearch server with a journal DB'))))))
       return;
     }
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
@@ -224,15 +224,15 @@
 
   async function loadLiveData() {
     try {
-      const base = window.EVOFLOW_API_URL || 'http://127.0.0.1:5175';
-      const res = await fetch(base.replace(/\/$/, '') + '/api/evoflow-data?ts=' + Date.now(), { cache: 'no-store' });
+      const base = window.FRONTEND_API_URL || 'http://127.0.0.1:5175';
+      const res = await fetch(base.replace(/\/$/, '') + '/api/data?ts=' + Date.now(), { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
-      if (data && data.payload && window.evoflowWorld) {
-        window.EVO = window.evoflowWorld(data.payload);
+      if (data && data.payload && window.appWorld) {
+        window.APP = window.appWorld(data.payload);
       }
     } catch (_) {
-      window.EVO = null;
+      window.APP = null;
     }
   }
 

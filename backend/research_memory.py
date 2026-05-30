@@ -24,10 +24,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from autoresearch import experiment_config
+from autoresearch.backend import experiment_config
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DB = experiment_config.DEFAULT_RESEARCH_DB
 ARXIV_API = "https://export.arxiv.org/api/query"
 EMBED_DIMS = 384

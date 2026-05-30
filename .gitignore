@@ -36,10 +36,10 @@ worktrees/
 
 # Frontend dependencies/build outputs
 node_modules/
-visualization/node_modules/
-visualization/dist/
-visualization/build/
-visualization/evoflow/scripts/__pycache__/
-visualization/evoflow/*.db
-visualization/evoflow/*.db-shm
-visualization/evoflow/*.db-wal
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/scripts/__pycache__/
+frontend/*.db
+frontend/*.db-shm
+frontend/*.db-wal

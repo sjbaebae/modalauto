@@ -1,12 +1,12 @@
 {
-  "name": "mae-paper-visualization",
+  "name": "autoresearch-frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "dev:evoflow": "cd evoflow && python3 scripts/serve_evoflow.py"
+    "dev:api": "python3 scripts/serve.py"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",

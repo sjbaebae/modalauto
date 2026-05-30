@@ -12,19 +12,19 @@ from urllib.parse import urlparse
 from export_real_data import build_payload, detect_db, render_js, render_runs_js
 
 
-AUTORESEARCH_ROOT = Path(__file__).resolve().parents[3]
+AUTORESEARCH_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = AUTORESEARCH_ROOT.parent
 DEFAULT_AUTORESEARCH = AUTORESEARCH_ROOT
-CHANGELOG_NAME = "evoflow_changelog.jsonl"
+CHANGELOG_NAME = "frontend_changelog.jsonl"
 WATCH_TABLES = ["agents", "hypotheses", "submissions", "verifications", "manager_events"]
 
 
 def pick_journal():
-    configured = os.environ.get("EVOFLOW_JOURNAL")
+    configured = os.environ.get("FRONTEND_JOURNAL")
     if configured:
         return Path(configured).expanduser().resolve()
     candidates = [
-        p for p in DEFAULT_AUTORESEARCH.glob("matmul_journal*")
+        p for p in (DEFAULT_AUTORESEARCH / "experiments").glob("*/journal")
         if detect_db(p).exists()
     ]
     if not candidates:
@@ -43,25 +43,24 @@ def journal_mtime_ns(journal):
 
 
 def discover_journals():
-    """All matmul_journal* dirs with a team_journal.db, newest first.
-    Honors EVOFLOW_JOURNAL to pin a single journal (matches pick_journal)."""
-    configured = os.environ.get("EVOFLOW_JOURNAL")
+    """All experiment journal dirs with a team_journal.db, newest first.
+    Honors FRONTEND_JOURNAL to pin a single journal (matches pick_journal)."""
+    configured = os.environ.get("FRONTEND_JOURNAL")
     if configured:
         p = Path(configured).expanduser().resolve()
         return [p] if detect_db(p).exists() else []
     candidates = [
-        p for p in DEFAULT_AUTORESEARCH.glob("matmul_journal*")
+        p for p in (DEFAULT_AUTORESEARCH / "experiments").glob("*/journal")
         if detect_db(p).exists()
     ]
     return sorted(candidates, key=journal_mtime_ns, reverse=True)
 
 
 def run_label(journal):
-    """Human label from a journal dir name, e.g.
-    matmul_journal_wide_20260530T115039 -> 'Wide'; matmul_journal -> 'Main run'."""
-    rest = journal.name[len("matmul_journal"):].lstrip("_")
-    rest = re.sub(r"_?\d{8}T\d{6}$", "", rest)
-    return rest.replace("_", " ").title() if rest else "Main run"
+    """Human label from an experiment journal path."""
+    name = journal.parent.name if journal.name == "journal" else journal.name
+    name = re.sub(r"_?\d{8}T\d{6}$", "", name)
+    return name.replace("_", " ").replace("-", " ").title() if name else "Main Run"
 
 
 def build_runs(journals):
@@ -87,8 +86,8 @@ def db_signature(journal):
     version = 0
     try:
         con = sqlite3.connect(db)
-        ensure_evoflow_hooks(con)
-        version = con.execute("select version from evoflow_state where id = 1").fetchone()[0]
+        ensure_frontend_hooks(con)
+        version = con.execute("select version from frontend_state where id = 1").fetchone()[0]
         for table in WATCH_TABLES:
             counts[table] = con.execute(f"select count(*) from {table}").fetchone()[0]
         con.close()
@@ -102,10 +101,10 @@ def db_signature(journal):
     return hashlib.sha256(raw.encode()).hexdigest()[:16], counts
 
 
-def ensure_evoflow_hooks(con):
+def ensure_frontend_hooks(con):
     con.execute(
         """
-        CREATE TABLE IF NOT EXISTS evoflow_state (
+        CREATE TABLE IF NOT EXISTS frontend_state (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             version INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -114,7 +113,7 @@ def ensure_evoflow_hooks(con):
     )
     con.execute(
         """
-        INSERT OR IGNORE INTO evoflow_state (id, version, updated_at)
+        INSERT OR IGNORE INTO frontend_state (id, version, updated_at)
         VALUES (1, 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
         """
     )
@@ -122,10 +121,10 @@ def ensure_evoflow_hooks(con):
         for op, event in [("ai", "INSERT"), ("au", "UPDATE"), ("ad", "DELETE")]:
             con.execute(
                 f"""
-                CREATE TRIGGER IF NOT EXISTS evoflow_{table}_{op}
+                CREATE TRIGGER IF NOT EXISTS frontend_{table}_{op}
                 AFTER {event} ON {table}
                 BEGIN
-                    UPDATE evoflow_state
+                    UPDATE frontend_state
                     SET version = version + 1,
                         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
                     WHERE id = 1;
@@ -200,7 +199,7 @@ def read_changelog(journal):
     return frames
 
 
-class EvoFlowHandler(SimpleHTTPRequestHandler):
+class AutoresearchHandler(SimpleHTTPRequestHandler):
     def end_no_cache_headers(self, content_type):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
@@ -214,13 +213,13 @@ class EvoFlowHandler(SimpleHTTPRequestHandler):
             journal = pick_journal()
             self.end_no_cache_headers("text/javascript; charset=utf-8")
             if not journal:
-                self.wfile.write(b"console.warn('EvoFlow: no team_journal.db found; using mock data');\n")
+                self.wfile.write(b"console.warn('Autoresearch: no team_journal.db found; using mock data');\n")
                 return
             try:
                 payload, _, _ = append_changelog_if_changed(journal)
                 self.wfile.write(render_js(payload).encode("utf-8"))
             except Exception as exc:
-                msg = json.dumps(f"EvoFlow real-data load failed: {exc}")
+                msg = json.dumps(f"Autoresearch real-data load failed: {exc}")
                 self.wfile.write(f"console.error({msg});\n".encode("utf-8"))
             return
 
@@ -229,15 +228,15 @@ class EvoFlowHandler(SimpleHTTPRequestHandler):
             try:
                 runs = build_runs(discover_journals())
                 if not runs:
-                    self.wfile.write(b"console.warn('EvoFlow: no populated journals; using mock runs');\n")
+                    self.wfile.write(b"console.warn('Autoresearch: no populated journals; using mock runs');\n")
                     return
                 self.wfile.write(render_runs_js(runs).encode("utf-8"))
             except Exception as exc:
-                msg = json.dumps(f"EvoFlow real-runs load failed: {exc}")
+                msg = json.dumps(f"Autoresearch real-runs load failed: {exc}")
                 self.wfile.write(f"console.error({msg});\n".encode("utf-8"))
             return
 
-        if path == "/api/evoflow-meta":
+        if path == "/api/meta":
             journal = pick_journal()
             payload = {"journal": str(journal) if journal else None, "hash": None, "counts": {}}
             if journal:
@@ -247,7 +246,7 @@ class EvoFlowHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(payload).encode("utf-8"))
             return
 
-        if path == "/api/evoflow-data":
+        if path == "/api/data":
             journal = pick_journal()
             self.end_no_cache_headers("application/json; charset=utf-8")
             if not journal:
@@ -266,7 +265,7 @@ class EvoFlowHandler(SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps({"journal": str(journal), "error": str(exc)}).encode("utf-8"))
             return
 
-        if path == "/api/evoflow-changelog":
+        if path == "/api/changelog":
             journal = pick_journal()
             payload = {"journal": str(journal) if journal else None, "frames": []}
             if journal:
@@ -288,9 +287,9 @@ class EvoFlowHandler(SimpleHTTPRequestHandler):
 def main():
     port = int(os.environ.get("PORT", "5174"))
     os.chdir(Path(__file__).resolve().parents[1])
-    server = ThreadingHTTPServer(("127.0.0.1", port), EvoFlowHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", port), AutoresearchHandler)
     journal = pick_journal()
-    print(f"EvoFlow server http://127.0.0.1:{port}/")
+    print(f"Autoresearch server http://127.0.0.1:{port}/")
     print(f"Journal: {journal if journal else 'none found'}")
     server.serve_forever()
 

@@ -383,9 +383,9 @@ def build_payload(journal, db_filename=None):
 
 # Shared adapter: turns a JSON payload into a full "world" object (attaches the
 # derive-at-time helper fns the UI calls). Used for both the single dashboard
-# world (window.EVO) and each Compare run (window.EVO_RUNS).
+# world (window.APP) and each Compare run (window.EVO_RUNS).
 WORLD_FACTORY_JS = r"""
-  function evoflowWorld(payload) {
+  function appWorld(payload) {
     function statusAt(n, T) {
       if (T < n.tProposed) return 'unborn';
       if (n.abandoned) return T > n.tProposed + 18 ? 'abandoned' : 'queued';
@@ -446,7 +446,7 @@ def render_js(payload):
     adapter = (
         "(function () {\n"
         + WORLD_FACTORY_JS
-        + "  window.EVO = evoflowWorld(__PAYLOAD__);\n"
+        + "  window.APP = appWorld(__PAYLOAD__);\n"
         + "})();\n"
     )
     return adapter.replace("__PAYLOAD__", json.dumps(payload, separators=(",", ":")))
@@ -458,7 +458,7 @@ def render_runs_js(runs):
     the mock runs.js shape so compare.jsx is data-source agnostic."""
     items = []
     for r in runs:
-        item = "    { id: __ID__, label: __LABEL__, desc: __DESC__, world: evoflowWorld(__PAYLOAD__) }"
+        item = "    { id: __ID__, label: __LABEL__, desc: __DESC__, world: appWorld(__PAYLOAD__) }"
         item = item.replace("__ID__", json.dumps(r["id"]))
         item = item.replace("__LABEL__", json.dumps(r["label"]))
         item = item.replace("__DESC__", json.dumps(r.get("desc", "")))
@@ -471,7 +471,7 @@ def render_runs_js(runs):
         + "  var RUNS = [\n" + body + "\n  ];\n"
         + "  window.EVO_RUNS = RUNS;\n"
         + "  window.EVO_RUN_BY_ID = {}; RUNS.forEach(function (r) { window.EVO_RUN_BY_ID[r.id] = r; });\n"
-        + "  if (!window.EVO && RUNS.length) window.EVO = RUNS[0].world;\n"
+        + "  if (!window.APP && RUNS.length) window.APP = RUNS[0].world;\n"
         + "})();\n"
     )
 

@@ -1,5 +1,5 @@
 /* ============================================================
-   EvoFlow — generated mock world
+   Autoresearch — generated mock world
    A deterministic simulation of an elastic multi-agent
    evolutionary search for a lower-energy 16x16 matmul.
 
@@ -9,7 +9,7 @@
    scrub time T: live agent state and tree growth are both
    derived from T, not pre-baked.
 
-   Exposes window.EVO = { meta, nodes, agents, events, helpers }
+   Exposes window.APP = { meta, nodes, agents, events, helpers }
    ============================================================ */
 (function () {
   // ---- seeded RNG (mulberry32) ----
@@ -403,6 +403,6 @@
   };
   };
 
-  // default world for the dashboard (skipped if real-data.js already set window.EVO)
-  if (!window.EVO) window.EVO = window.buildWorld(20260530, { label: 'Panel-first search', tag: 'panel-first' });
+  // default world for the dashboard (skipped if real-data.js already set window.APP)
+  if (!window.APP) window.APP = window.buildWorld(20260530, { label: 'Panel-first search', tag: 'panel-first' });
 })();

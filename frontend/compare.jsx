@@ -1,4 +1,4 @@
-/* EvoFlow — Compare page.
+/* Autoresearch — Compare page.
    ONE evolution tree as the main panel, with TWO branches highlighted on it
    (A blue, B amber) and their divergence marked. BELOW: side-by-side run
    snapshots showing how each branch's algorithm actually executes. Right: the
@@ -13,6 +13,54 @@
 
   function lineageArr(world, nodeId) { const a = []; let c = world.nodes.find((n) => n.id === nodeId); while (c) { a.unshift(c); c = c.parent ? world.nodes.find((n) => n.id === c.parent) : null; } return a; }
   function gen1Of(world, node) { let c = node; while (c && c.gen > 1) c = world.nodes.find((n) => n.id === c.parent); return c; }
+
+  // Pick two branches that come from a COMMON tree: find the deepest fork point
+  // (a node whose subtree splits into ≥2 children that each lead to an accepted
+  // candidate) and return the best leaf from two different children. This makes
+  // A and B share a real ancestor at gen > 0 instead of only the root.
+  function bestBranchPair(world) {
+    const nodes = world.nodes;
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    const childrenOf = new Map();
+    nodes.forEach((n) => { if (n.parent && byId.has(n.parent)) { (childrenOf.get(n.parent) || childrenOf.set(n.parent, []).get(n.parent)).push(n); } });
+    const scored = (n) => n.outcome === 'accept' && n.score != null;
+
+    // For each node, the best (lowest-score) accepted leaf in its subtree.
+    const bestInSubtree = new Map();
+    const visit = (n) => {
+      if (bestInSubtree.has(n.id)) return bestInSubtree.get(n.id);
+      let best = scored(n) ? n : null;
+      (childrenOf.get(n.id) || []).forEach((c) => {
+        const cb = visit(c);
+        if (cb && (!best || cb.score < best.score)) best = cb;
+      });
+      bestInSubtree.set(n.id, best);
+      return best;
+    };
+    nodes.forEach(visit);
+
+    // Among all fork nodes, prefer the deepest (max gen); break ties by the
+    // combined quality of its two best diverging child-subtrees.
+    let pick = null;
+    nodes.forEach((f) => {
+      const kids = (childrenOf.get(f.id) || [])
+        .map((c) => ({ c, leaf: bestInSubtree.get(c.id) }))
+        .filter((x) => x.leaf)
+        .sort((a, b) => a.leaf.score - b.leaf.score);
+      if (kids.length < 2) return;
+      const a = kids[0].leaf, b = kids[1].leaf;
+      if (a.id === b.id) return;
+      const cand = { forkGen: f.gen, sum: a.score + b.score, a: a.id, b: b.id };
+      if (!pick || cand.forkGen > pick.forkGen || (cand.forkGen === pick.forkGen && cand.sum < pick.sum)) pick = cand;
+    });
+    if (pick) return { a: pick.a, b: pick.b };
+
+    // Fallback (flat/degenerate tree): global best vs next-best accepted leaf.
+    const acc = nodes.filter(scored).sort((x, y) => x.score - y.score);
+    const best = byId.get(world.meta.bestNode) || acc[0] || nodes[0];
+    const b = acc.find((n) => n.id !== best.id) || best;
+    return { a: best.id, b: b.id };
+  }
   function genIR(node) {
     const m = (node.candidate.match(/(\d+)x(\d+)x(\d+)/) || [null, '4', '2', '1']);
     return [`; ${node.candidate}`, `panel = tile(${m[1]}, ${m[2]})`, `for (i,j) in panels(C, panel):`,
@@ -131,14 +179,10 @@
     const run = BY[runId] || RUNS[0]; const world = run.world;
     const cA = 'var(--cmp-a)', cB = 'var(--cmp-b)';
 
-    // default branches: best (A) and best of a different gen-1 family (B)
-    const defaults = useMemo(() => {
-      const best = world.nodes.find((n) => n.id === world.meta.bestNode);
-      const aFam = gen1Of(world, best);
-      const others = world.nodes.filter((n) => n.outcome === 'accept' && n.score != null).filter((n) => { const g = gen1Of(world, n); return g && aFam && g.id !== aFam.id; }).sort((x, y) => x.score - y.score);
-      const b = others[0] || world.nodes.filter((n) => n.outcome === 'accept' && n.id !== best.id).sort((x, y) => x.score - y.score)[0];
-      return { a: best.id, b: b ? b.id : best.id };
-    }, [runId]);
+    // default branches: two leaves that fork from a real shared ancestor in the
+    // SAME tree (deepest fork), so A and B genuinely diverge instead of being
+    // two separate gen-0 roots.
+    const defaults = useMemo(() => bestBranchPair(world), [runId]);
 
     const [aNode, setANode] = useState(defaults.a);
     const [bNode, setBNode] = useState(defaults.b);
@@ -169,7 +213,7 @@
               React.createElement('circle', { cx: 6, cy: 17, r: 3, fill: 'var(--fit-1)' }), React.createElement('circle', { cx: 17, cy: 8, r: 2.6, fill: 'var(--fit-3)' }),
               React.createElement('circle', { cx: 17, cy: 26, r: 2.6, fill: 'var(--fit-2)' }), React.createElement('circle', { cx: 28, cy: 6, r: 3.4, fill: 'var(--cmp-a)' }),
               React.createElement('circle', { cx: 28, cy: 20, r: 2.4, fill: 'var(--fit-4)' }), React.createElement('path', { d: 'M9 17 L14.6 9 M9 17 L14.6 25 M19.4 8 L26 6.5 M19.4 8 L26 19 M19.4 26 L26 27.5', stroke: 'var(--line-strong)', strokeWidth: 1.2 })),
-            React.createElement('span', { className: 'logo-name' }, 'EvoFlow')),
+            React.createElement('span', { className: 'logo-name' }, 'Autoresearch')),
           React.createElement('nav', { className: 'nav-tabs' },
             React.createElement('a', { className: 'nav-tab', href: 'index.html' }, 'Tree'),
             React.createElement('a', { className: 'nav-tab active', href: 'Compare.html' }, 'Compare')),

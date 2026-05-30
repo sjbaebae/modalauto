@@ -6,7 +6,7 @@
   let currentFrames = null;
   async function check() {
     try {
-      const res = await fetch('/api/evoflow-changelog?ts=' + Date.now(), { cache: 'no-store' });
+      const res = await fetch('/api/changelog?ts=' + Date.now(), { cache: 'no-store' });
       if (!res.ok) return;
       const meta = await res.json();
       const frames = meta.frames || [];
