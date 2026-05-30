@@ -1,0 +1,21 @@
+{
+  "name": "evogym_walker",
+  "description": "Evolutionary Walker-v0 soft-robot morphology search via evogym. Direction: maximize forward reward, multi-seed eval (default 3 seeds) due to stochastic simulator.",
+  "domain": "evogym",
+  "direction": "maximize",
+  "primary_metric": "mean_forward_reward",
+  "stochastic": true,
+  "runner": {
+    "command": "experiments/evogym_walker/loop.py",
+    "args": [
+      "--experiment-root",
+      "{experiment_root}"
+    ]
+  },
+  "paths": {
+    "journal": "journal",
+    "worktrees": "worktrees"
+  },
+  "venv": "/Users/naka/src/evogym-env",
+  "venv_reason": "evogym pins requires-python <3.11 and bundles a C++ simulator; isolated Py3.10 venv keeps modalauto Python-version-agnostic"
+}

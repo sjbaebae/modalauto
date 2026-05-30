@@ -24,15 +24,17 @@ warnings.filterwarnings("ignore")
 import numpy as np
 
 # Make `autoresearch` importable when this module is run as a script
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from autoresearch.evogym_env import scorer as evo_scorer
-from autoresearch.evogym_env import candidates as evo_candidates
-from autoresearch.evogym_env.candidates import Candidate
+from autoresearch.backend import experiment_config
+from autoresearch.experiments.evogym_walker.walker import scorer as evo_scorer
+from autoresearch.experiments.evogym_walker.walker import candidates as evo_candidates
+from autoresearch.experiments.evogym_walker.walker.candidates import Candidate
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-JOURNAL_ROOT = REPO_ROOT / "autoresearch" / "evogym_journal"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_LAYOUT = experiment_config.layout("evogym_walker")
+JOURNAL_ROOT = DEFAULT_LAYOUT.journal_dir
 
 
 @dataclass
@@ -156,9 +158,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rollout-steps", type=int, default=80)
     parser.add_argument("--seed", type=int, default=42, help="seed for candidate gen")
     parser.add_argument("--journal-root", type=Path, default=JOURNAL_ROOT)
+    parser.add_argument("--experiment-root", type=Path, default=None,
+                        help="override experiment root (workflow.json passes this)")
     parser.add_argument("--n-mutations", type=int, default=4,
                         help="extra mutated children of the random batch's first candidate")
     args = parser.parse_args(argv)
+
+    # Honor workflow.json --experiment-root substitution
+    if args.experiment_root is not None:
+        layout = experiment_config.layout(root=args.experiment_root)
+        args.journal_root = layout.journal_dir
 
     seeds = [int(s) for s in args.seeds.split(",")]
     rng = np.random.default_rng(args.seed)
