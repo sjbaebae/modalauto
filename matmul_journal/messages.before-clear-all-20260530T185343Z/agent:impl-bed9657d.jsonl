@@ -1,1 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:impl-bed9657d", "created_at": "2026-05-30T18:02:37.262596+00:00", "from": "manager-peer-b", "id": "msg-1712a9f23e23", "kind": "stop", "payload": {"role": "implementor"}, "to": "impl-bed9657d"}

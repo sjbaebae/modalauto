@@ -1,1 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:impl-cb48dac9", "created_at": "2026-05-30T18:16:35.672569+00:00", "from": "scratch-manager-a", "id": "msg-74d90353994f", "kind": "stop", "payload": {"role": "implementor"}, "to": "impl-cb48dac9"}

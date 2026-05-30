@@ -1,1 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:verifier-b79d2416", "created_at": "2026-05-30T18:16:17.278305+00:00", "from": "scratch-manager-b", "id": "msg-03fa00b92646", "kind": "stop", "payload": {"role": "verifier"}, "to": "verifier-b79d2416"}

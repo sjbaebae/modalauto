@@ -1,1 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:verifier-dabefeca", "created_at": "2026-05-30T18:04:19.455922+00:00", "from": "manager-final-b", "id": "msg-a4d44470a14c", "kind": "stop", "payload": {"role": "verifier"}, "to": "verifier-dabefeca"}

@@ -1,1 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:impl-38fc130b", "created_at": "2026-05-30T18:23:37.769301+00:00", "from": "clean-manager-b", "id": "msg-f52fc3963d35", "kind": "stop", "payload": {"role": "implementor"}, "to": "impl-38fc130b"}

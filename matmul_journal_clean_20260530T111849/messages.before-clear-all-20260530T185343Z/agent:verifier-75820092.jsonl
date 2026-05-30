@@ -1,1 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:verifier-75820092", "created_at": "2026-05-30T18:19:32.779250+00:00", "from": "clean-manager-b", "id": "msg-20b9ab712e6e", "kind": "stop", "payload": {"role": "verifier"}, "to": "verifier-75820092"}

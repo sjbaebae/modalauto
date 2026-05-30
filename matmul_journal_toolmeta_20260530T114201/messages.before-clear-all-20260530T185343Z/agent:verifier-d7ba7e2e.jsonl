@@ -1,2 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:verifier-d7ba7e2e", "created_at": "2026-05-30T18:42:41.203601+00:00", "from": "toolmeta-manager-b", "id": "msg-5a9bb51b61dc", "kind": "stop", "payload": {"role": "verifier"}, "to": "verifier-d7ba7e2e"}
-{"body": "retire requested by manager", "channel": "agent:verifier-d7ba7e2e", "created_at": "2026-05-30T18:42:41.229646+00:00", "from": "toolmeta-manager-b", "id": "msg-131b1c7b9136", "kind": "stop", "payload": {"role": "verifier"}, "to": "verifier-d7ba7e2e"}

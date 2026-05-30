@@ -1,1 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:impl-cfd4150e", "created_at": "2026-05-30T18:20:25.811156+00:00", "from": "clean-manager-a", "id": "msg-5504a2accc3d", "kind": "stop", "payload": {"role": "implementor"}, "to": "impl-cfd4150e"}

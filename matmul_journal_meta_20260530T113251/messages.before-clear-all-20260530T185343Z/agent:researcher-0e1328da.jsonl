@@ -1,1 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:researcher-0e1328da", "created_at": "2026-05-30T18:32:56.385473+00:00", "from": "meta-manager-b", "id": "msg-d6fb964a16a6", "kind": "stop", "payload": {"role": "researcher"}, "to": "researcher-0e1328da"}

@@ -1,1 +1,0 @@
-{"body": "retire requested by manager", "channel": "agent:verifier-e4054e64", "created_at": "2026-05-30T18:42:36.968083+00:00", "from": "toolmeta-manager-b", "id": "msg-964ff119d3cc", "kind": "stop", "payload": {"role": "verifier"}, "to": "verifier-e4054e64"}

@@ -1,0 +1,33 @@
+# Python/runtime artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local virtual environments and tooling caches
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+
+# Generated experiment output
+experiments/output/
+
+# Autoresearch run journals, messages, databases, and generated artifacts
+matmul_journal/artifacts/
+matmul_journal/messages/
+matmul_journal/messages.before-*/
+matmul_journal/runs/
+matmul_journal/*.db
+matmul_journal/*.db-shm
+matmul_journal/*.db-wal
+matmul_journal/*.jsonl
+matmul_journal_*/
+worktrees/
+
+# Frontend dependencies/build outputs
+node_modules/
+visualization/node_modules/
+visualization/dist/
+visualization/build/
+visualization/evoflow/scripts/__pycache__/

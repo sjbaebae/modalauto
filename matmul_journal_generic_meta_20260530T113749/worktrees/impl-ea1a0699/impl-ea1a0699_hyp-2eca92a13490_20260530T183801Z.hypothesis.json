@@ -1,8 +1,0 @@
-{
-  "best_frontier": {},
-  "insight": "If many recent submissions share the same family/score, force broader loop-order and address-layout reasoning before more implementation.",
-  "operator": "enumerate_panels",
-  "recent_best": null,
-  "recent_families": {},
-  "strategy": "baseline"
-}
