@@ -131,9 +131,13 @@
     };
     const onBarClick = (e) => {
       const r = e.currentTarget.getBoundingClientRect();
-      setHead(Math.round(((e.clientX - r.left) / r.width) * (ops.length - 1)));
+      setHead(Math.round(((e.clientX - r.left) / r.width) * (total - 1)));
       setPlaying(false);
     };
+
+    const srcLabel = isReal
+      ? ('real trace · ' + (real.totalOps || 0).toLocaleString() + ' ops' + (real.energy != null ? ' · ' + real.energy.toLocaleString() + ' energy' : ''))
+      : 'representative run';
 
     return (
       <div className="run">
@@ -143,9 +147,9 @@
           <div className="run-bar" onClick={onBarClick}>
             <div className="run-bar-fill" ref={barRef} />
           </div>
-          <span className="run-count">{head + '/' + (ops.length - 1)}</span>
+          <span className="run-count">{head + '/' + (total - 1)}</span>
         </div>
-        <div className="eyebrow" style={{ marginTop: 4 }}>{'op trace · ' + Math.round((head / (ops.length - 1)) * 100) + '% filled'}</div>
+        <div className="eyebrow" style={{ marginTop: 4 }}>{'op trace · ' + pctFilled + '% · ' + srcLabel}</div>
         <div className="run-trace" ref={traceRef}>
           {traceWindow.map(({ i, op }) => (
             <div key={i} className={'trace-line' + (i === head ? ' on' : '')} style={{ opacity: i === head ? 1 : 0.4 }}>
