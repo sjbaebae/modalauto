@@ -1,1 +1,0 @@
-"""Reference matmul autoresearch experiment."""

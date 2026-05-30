@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from autoresearch.backend import experiment_config
-from autoresearch.experiments.matmul_reference.matmul import matmul
+from autoresearch.experiments.matmul.matmul import matmul
 
 
 N = 16

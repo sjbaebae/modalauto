@@ -3,7 +3,7 @@ import unittest
 import os
 
 EXAMPLES_DIR = os.path.dirname(os.path.abspath(__file__))
-EXAMINE_FILE_PATH = os.path.join(EXAMPLES_DIR, "../../../../openai_hide_and_seek/bin/examine.py")
+EXAMINE_FILE_PATH = os.path.join(EXAMPLES_DIR, "../../openai_hide_and_seek/bin/examine.py")
 
 
 class ExamineTest(unittest.TestCase):

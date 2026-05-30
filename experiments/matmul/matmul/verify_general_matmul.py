@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[4]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from autoresearch.experiments.matmul_reference.matmul import matmul  # noqa: E402
+from autoresearch.experiments.matmul.matmul import matmul  # noqa: E402
 
 
 N = 16
