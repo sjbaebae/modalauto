@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import hashlib
 import json
+import mimetypes
 import os
 import re
 import sqlite3
@@ -231,6 +232,17 @@ def read_changelog(journal):
     return frames
 
 
+def artifact_path_from_query(journal, raw_path):
+    if not journal or not raw_path:
+        return None
+    try:
+        target = Path(raw_path).expanduser().resolve()
+        target.relative_to(journal.resolve())
+    except (OSError, ValueError):
+        return None
+    return target if target.exists() and target.is_file() else None
+
+
 def now_iso():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
@@ -452,6 +464,18 @@ class AutoresearchHandler(SimpleHTTPRequestHandler):
                                             separators=(",", ":")).encode("utf-8"))
             except Exception as exc:
                 self.wfile.write(json.dumps({"ok": False, "error": str(exc)}).encode("utf-8"))
+            return
+
+        if path == "/api/artifact":
+            from urllib.parse import parse_qs
+            q = parse_qs(urlparse(self.path).query)
+            journal = pick_journal()
+            target = artifact_path_from_query(journal, (q.get("path") or [""])[0])
+            if not target:
+                self.send_error(404)
+                return
+            self.end_no_cache_headers(mimetypes.guess_type(str(target))[0] or "application/octet-stream")
+            self.wfile.write(target.read_bytes())
             return
 
         super().do_GET()

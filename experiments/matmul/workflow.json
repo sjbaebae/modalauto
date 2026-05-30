@@ -2,6 +2,20 @@
   "name": "matmul",
   "description": "Reference 16x16 matmul optimization workflow for the autoresearch loop.",
   "domain": "matmul",
+  "direction": "minimize",
+  "primary_metric": "energy",
+  "baseline": 108880,
+  "target": 66707,
+  "visualizations": [
+    {
+      "type": "matmul_ir",
+      "label": "Candidate IR & verification"
+    },
+    {
+      "type": "matmul_playback",
+      "label": "Run playback"
+    }
+  ],
   "runner": {
     "command": "experiments/matmul/loop.py",
     "args": [

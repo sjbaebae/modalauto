@@ -8,7 +8,16 @@
   const roleCol = window.evoRoleCol;
   const ROLE_LABEL = window.EVO_ROLE_LABEL;
   const mmss = window.evoMMSS;
-  const fmt = (n) => n == null ? '—' : n.toLocaleString();
+  const fmt = (n) => {
+    if (n == null) return '—';
+    if (typeof n !== 'number') return String(n);
+    if (!Number.isFinite(n)) return String(n);
+    const abs = Math.abs(n);
+    const maximumFractionDigits = Number.isInteger(n) ? 0 : abs >= 100 ? 2 : abs >= 1 ? 3 : 4;
+    return n.toLocaleString(undefined, { maximumFractionDigits });
+  };
+  const isMaximize = () => String((E.meta && E.meta.direction) || 'minimize').toLowerCase() === 'maximize';
+  const isMatmulDomain = () => String((E.meta && E.meta.domain) || '').toLowerCase().includes('matmul');
 
   function statusPill(st) {
     const map = { verified: 'ok', rejected: 'bad', claimed: 'working', submitted: 'working', queued: 'idle', abandoned: 'dead' };
@@ -25,6 +34,7 @@
     if (!buckets) return null;
     const order = ['mul', 'add', 'copy', 'load', 'store'];
     const total = order.reduce((s, k) => s + buckets[k], 0);
+    if (!total) return null;
     return (
       <div>
         <div className="bucket-bar">
@@ -60,6 +70,151 @@
     ].join('\n');
   }
 
+  function artifactUrl(path) {
+    return '/api/artifact?path=' + encodeURIComponent(path);
+  }
+
+  function valueText(value) {
+    if (value == null) return '—';
+    if (typeof value === 'number') return fmt(value);
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    if (Array.isArray(value)) return value.join(', ');
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  }
+
+  function labelText(value) {
+    return String(value || '').replace(/_/g, ' ');
+  }
+
+  function nodeArtifact(node) {
+    return node && node.artifact ? node.artifact.details : null;
+  }
+
+  function MetricRows({ metrics }) {
+    const entries = Object.entries(metrics || {}).filter(([, v]) => v != null);
+    if (!entries.length) return <div className="insp-meta">No recorded metrics.</div>;
+    return (
+      <div className="artifact-metrics">
+        {entries.map(([k, v]) => (
+          <div key={k} className="prow">
+            <span className="pk">{labelText(k)}</span>
+            <span className="pv">{valueText(v)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function VoxelBody({ artifact }) {
+    const body = artifact && artifact.body;
+    const grid = body && Array.isArray(body.grid) ? body.grid : null;
+    if (!grid || !grid.length) return <div className="insp-meta">No voxel body artifact.</div>;
+    const cols = Math.max(1, ...grid.map((row) => Array.isArray(row) ? row.length : 0));
+    const legend = body.legend || {};
+    return (
+      <div className="artifact-view">
+        <div className="voxel-grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          {grid.flatMap((row, y) => row.map((cell, x) => (
+            <span key={y + ':' + x} className={'voxel v' + cell} title={(legend[String(cell)] || cell) + ' · ' + x + ',' + y} />
+          )))}
+        </div>
+        <div className="voxel-legend">
+          {Object.entries(legend).map(([k, v]) => (
+            <span key={k} className="voxel-legend-item">
+              <span className={'voxel-swatch v' + k} />{v}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function ArtifactFiles({ artifact }) {
+    const files = artifact && Array.isArray(artifact.files) ? artifact.files : [];
+    const images = artifact && Array.isArray(artifact.images) ? artifact.images : [];
+    if (!files.length) return <div className="insp-meta">No artifact files.</div>;
+    return (
+      <div className="artifact-view">
+        {images.length ? <div className="artifact-images">
+          {images.slice(0, 4).map((file) => <a key={file.path} href={artifactUrl(file.path)} target="_blank" rel="noreferrer">
+            <img src={artifactUrl(file.path)} alt={file.name} />
+          </a>)}
+        </div> : null}
+        <div className="artifact-files">
+          {files.map((file) => (
+            <a key={file.path} className="artifact-file" href={artifactUrl(file.path)} target="_blank" rel="noreferrer">
+              <span className="artifact-kind">{file.kind}</span>
+              <span className="artifact-name">{file.name}</span>
+              {file.size != null ? <span className="artifact-size">{fmt(file.size) + ' B'}</span> : null}
+            </a>
+          ))}
+        </div>
+        {artifact.preview ? <pre className="artifact-preview">{artifact.preview}</pre> : null}
+      </div>
+    );
+  }
+
+  function VerificationRecord({ node }) {
+    return (
+      <div className="well ver-rec">
+        <div>submission  <span style={{ color: 'var(--ink)' }}>{node.subId || '—'}</span></div>
+        <div>verifier    <span style={{ color: 'var(--ink)' }}>{node.verifier || '—'}</span></div>
+        <div>official    <span style={{ color: 'var(--ink)' }}>{fmt(node.score)}</span></div>
+        <div>decision    <span style={{ color: node.outcome === 'accept' ? 'var(--ok)' : node.outcome === 'reject' ? 'var(--bad)' : 'var(--ink-3)' }}>{node.outcome || 'pending'}</span></div>
+      </div>
+    );
+  }
+
+  function customVisualizationContent(view, node, speed) {
+    const registry = window.AutoresearchVisualizations || {};
+    const Comp = registry[view.type] || (view.component ? window[view.component] : null);
+    if (!Comp) return null;
+    return <Comp node={node} view={view} app={E} speed={speed} artifactUrl={artifactUrl} fmt={fmt} />;
+  }
+
+  function renderVisualization(view, node, speed) {
+    const type = view.type;
+    const title = view.label || labelText(type);
+    const artifact = nodeArtifact(node);
+    if (type === 'matmul_ir') {
+      return <Section key={type} title={title} defaultOpen={false}>
+        <pre className="well ir" style={{ marginBottom: 10 }}>{genIR(node)}</pre>
+        <VerificationRecord node={node} />
+      </Section>;
+    }
+    if (type === 'matmul_playback' && window.RunPlayback) {
+      return <Section key={type} title={title} defaultOpen={true}>
+        <window.RunPlayback node={node} speed={speed} />
+      </Section>;
+    }
+    if (type === 'voxel_grid') {
+      return <Section key={type} title={title} defaultOpen={true}>
+        <VoxelBody artifact={artifact} />
+      </Section>;
+    }
+    if (type === 'metrics') {
+      const metrics = (artifact && artifact.metrics) || {};
+      return <Section key={type} title={title} defaultOpen={true}>
+        <MetricRows metrics={metrics} />
+      </Section>;
+    }
+    if (type === 'artifact_files') {
+      return <Section key={type} title={title} defaultOpen={false}>
+        <ArtifactFiles artifact={artifact} />
+      </Section>;
+    }
+    if (type === 'artifact_bundle') {
+      return <Section key={type} title={title} defaultOpen={true}>
+        <VoxelBody artifact={artifact} />
+        <MetricRows metrics={(artifact && artifact.metrics) || {}} />
+        <ArtifactFiles artifact={artifact} />
+      </Section>;
+    }
+    const custom = customVisualizationContent(view, node, speed);
+    return custom ? <Section key={type} title={title} defaultOpen={view.defaultOpen !== false}>{custom}</Section> : null;
+  }
+
   function InspectorPanel({ nodeId, T, speed, onClose, onSelect, branchSelection = [] }) {
     const node = E.nodes.find((n) => n.id === nodeId);
     const [controlText, setControlText] = useState('');
@@ -81,11 +236,24 @@
     const stNow = st === 'unborn' ? 'queued' : st;
     const parent = node.parent ? E.nodes.find((n) => n.id === node.parent) : null;
     const delta = (node.score != null && parent && parent.score != null) ? node.score - parent.score : null;
+    const deltaGood = delta == null ? false : isMaximize() ? delta > 0 : delta < 0;
+    const deltaBad = delta == null ? false : isMaximize() ? delta < 0 : delta > 0;
     const lineage = useMemo(() => { const arr = []; let cur = node; while (cur) { arr.unshift(cur); cur = cur.parent ? E.nodes.find((n) => n.id === cur.parent) : null; } return arr; }, [nodeId]);
     const children = E.nodes.filter((n) => n.parent === node.id);
     const selectable = E.nodes
       .filter((n) => n.outcome === 'accept')
-      .sort((a, b) => (a.score ?? 1e12) - (b.score ?? 1e12) || a.id.localeCompare(b.id));
+      .sort((a, b) => {
+        const as = a.score == null ? (isMaximize() ? -Infinity : Infinity) : a.score;
+        const bs = b.score == null ? (isMaximize() ? -Infinity : Infinity) : b.score;
+        return (isMaximize() ? bs - as : as - bs) || a.id.localeCompare(b.id);
+      });
+    const configuredViews = Array.isArray(E.meta.visualizations) ? E.meta.visualizations.filter((v) => v && v.type) : [];
+    const views = configuredViews.length
+      ? configuredViews
+      : isMatmulDomain()
+        ? [{ type: 'matmul_ir', label: 'Candidate IR & verification' }, { type: 'matmul_playback', label: 'Run playback' }]
+        : [{ type: 'artifact_bundle', label: 'Artifacts' }];
+    const visualizationSections = views.map((view) => renderVisualization(view, node, speed)).filter(Boolean);
     const postControl = async (path, payload) => {
       setControlStatus('sending...');
       try {
@@ -143,7 +311,7 @@
                     {node.isFrontier ? <span className="frontier-tag">★ current frontier</span> : null}
                   </div>
                   <div className="prow"><span className="pk">Δ vs parent</span>
-                    {delta != null ? <span className="pv" style={{ color: delta < 0 ? 'var(--ok)' : delta > 0 ? 'var(--bad)' : 'var(--ink-3)' }}>{(delta < 0 ? '▼ ' : delta > 0 ? '▲ ' : '') + fmt(Math.abs(delta))}</span> : <span className="pv">—</span>}
+                    {delta != null ? <span className="pv" style={{ color: deltaGood ? 'var(--ok)' : deltaBad ? 'var(--bad)' : 'var(--ink-3)' }}>{(delta < 0 ? '▼ ' : delta > 0 ? '▲ ' : '') + fmt(Math.abs(delta))}</span> : <span className="pv">—</span>}
                   </div>
                   <div className="prow"><span className="pk">Semantic</span><span className="pv" style={{ color: 'var(--ok)' }}>{node.semantic}</span></div>
                 </div>
@@ -245,21 +413,7 @@
             </div>
           </Section>
 
-          {/* trace */}
-          <Section title="Candidate IR & verification" defaultOpen={false}>
-            <pre className="well ir" style={{ marginBottom: 10 }}>{genIR(node)}</pre>
-            <div className="well ver-rec">
-              <div>submission  <span style={{ color: 'var(--ink)' }}>{node.subId || '—'}</span></div>
-              <div>verifier    <span style={{ color: 'var(--ink)' }}>{node.verifier || '—'}</span></div>
-              <div>official    <span style={{ color: 'var(--ink)' }}>{fmt(node.score)}</span></div>
-              <div>decision    <span style={{ color: node.outcome === 'accept' ? 'var(--ok)' : node.outcome === 'reject' ? 'var(--bad)' : 'var(--ink-3)' }}>{node.outcome || 'pending'}</span></div>
-            </div>
-          </Section>
-
-          {/* run playback */}
-          <Section title="Run playback" defaultOpen={true}>
-            <window.RunPlayback node={node} speed={speed} />
-          </Section>
+          {visualizationSections}
         </div>
       </React.Fragment>
     );

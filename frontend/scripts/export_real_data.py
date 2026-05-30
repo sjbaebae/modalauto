@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
 import argparse
 import json
 import sqlite3
@@ -6,8 +8,45 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-BASELINE = 108880
-TARGET = 66707
+DEFAULT_BASELINE = 0
+DEFAULT_TARGET = 0
+DEFAULT_PROBLEM = "experiment"
+DEFAULT_METRIC = "score"
+DEFAULT_DIRECTION = "minimize"
+
+# Legacy aliases for older callers. Experiment-specific values come from
+# experiments/<slug>/workflow.json.
+BASELINE = DEFAULT_BASELINE
+TARGET = DEFAULT_TARGET
+
+
+def experiment_meta(journal: Path) -> dict:
+    workflow_path = journal.parent / "workflow.json"
+    exp_name = journal.parent.name or DEFAULT_PROBLEM
+    if not workflow_path.exists():
+        return {
+            "direction": DEFAULT_DIRECTION,
+            "metric": DEFAULT_METRIC,
+            "problem": exp_name,
+            "baseline": DEFAULT_BASELINE,
+            "target": DEFAULT_TARGET,
+            "domain": "custom",
+            "visualizations": [],
+        }
+    w = json.loads(workflow_path.read_text())
+    return {
+        "direction": w.get("direction", DEFAULT_DIRECTION),
+        "metric": w.get("primary_metric", DEFAULT_METRIC),
+        "problem": w.get("description") or w.get("name") or exp_name,
+        "baseline": w.get("baseline", DEFAULT_BASELINE),
+        "target": w.get("target", DEFAULT_TARGET),
+        "domain": w.get("domain", "custom"),
+        "visualizations": w.get("visualizations", []),
+    }
+
+
+def is_maximize(meta: dict) -> bool:
+    return str(meta.get("direction", DEFAULT_DIRECTION)).lower() == "maximize"
 
 
 def parse_ts(value):
@@ -34,20 +73,41 @@ def load_json(value, default):
 def fit_bin(score, best):
     if score is None:
         return None
-    span = max(1, BASELINE - best)
+    span = max(1e-9, BASELINE - best)
     return max(0, min(6, round(((BASELINE - score) / span) * 6)))
+
+
+def fit_bin_meta(score, best, meta):
+    if score is None:
+        return None
+    baseline = meta.get("baseline", DEFAULT_BASELINE)
+    if is_maximize(meta):
+        span = max(1e-9, (best - baseline)) if best is not None else 1
+        return max(0, min(6, round(((score - baseline) / span) * 6)))
+    span = max(1e-9, (baseline - best)) if best is not None else 1
+    return max(0, min(6, round(((baseline - score) / span) * 6)))
 
 
 def bucketize(raw):
     if not raw:
         return None
-    return {
+    buckets = {
         "mul": int(raw.get("mul_reads") or raw.get("mul") or 0),
         "add": int(raw.get("add_reads") or raw.get("add") or 0),
         "copy": int(raw.get("copy_reads") or raw.get("copy") or 0),
         "load": int(raw.get("ops") or raw.get("load") or 0),
         "store": int(raw.get("output_reads") or raw.get("store") or 0),
     }
+    return buckets if any(buckets.values()) else None
+
+
+def score_from_verification(ver, fallback=None):
+    if not ver:
+        return fallback
+    raw = load_json(ver["buckets_json"], {})
+    if isinstance(raw, dict) and raw.get("score_float") is not None:
+        return raw["score_float"]
+    return ver.get("official_score") if ver.get("official_score") is not None else fallback
 
 
 def normalize_display_parents(nodes):
@@ -72,6 +132,8 @@ def family_from(context, summary):
     best = summary.get("best") if isinstance(summary, dict) else {}
     if isinstance(best, dict) and best.get("family"):
         return best["family"]
+    if isinstance(summary, dict) and summary.get("family"):
+        return summary["family"]
     impl = context.get("implementation") if isinstance(context, dict) else {}
     op = impl.get("operator") if isinstance(impl, dict) else None
     if op:
@@ -120,6 +182,94 @@ def _resolve_artifact(journal, artifact_path):
         if c.exists():
             return c
     return None
+
+
+def file_kind(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+        return "image"
+    if suffix == ".json":
+        return "json"
+    if suffix in {".csv", ".tsv"}:
+        return "table"
+    if suffix in {".md", ".txt", ".ir", ".py", ".log"}:
+        return "text"
+    if suffix == ".npy":
+        return "array"
+    return "file"
+
+
+def file_item(path: Path) -> dict:
+    return {
+        "name": path.name,
+        "path": str(path),
+        "kind": file_kind(path),
+        "size": path.stat().st_size if path.exists() else None,
+    }
+
+
+def text_preview(path: Path, limit: int = 6000) -> str | None:
+    if not path.exists() or file_kind(path) not in {"text", "json", "table"}:
+        return None
+    try:
+        raw = path.read_text(errors="replace")
+    except OSError:
+        return None
+    return raw[:limit] + ("\n..." if len(raw) > limit else "")
+
+
+def body_from_npy(path: Path) -> dict | None:
+    if path.suffix.lower() != ".npy" or not path.exists():
+        return None
+    try:
+        import numpy as np
+        arr = np.load(path)
+    except Exception:
+        return None
+    if getattr(arr, "ndim", None) != 2 or arr.size > 400:
+        return None
+    legend = {"0": "empty", "1": "rigid", "2": "soft", "3": "horizontal actuator", "4": "vertical actuator"}
+    glyph = {0: "E", 1: "R", 2: "S", 3: "H", 4: "V"}
+    grid = [[int(v) for v in row] for row in arr.tolist()]
+    text = "\n".join(" ".join(glyph.get(int(v), "?") for v in row) for row in grid)
+    return {"grid": grid, "text": text, "legend": legend}
+
+
+def artifact_details(journal: Path, artifact_path_value, summary: dict, raw_buckets: dict) -> dict | None:
+    path = _resolve_artifact(journal, artifact_path_value)
+    if not path:
+        return None
+    artifact_root = path.parent.parent if path.parent.name == "bodies" else path.parent
+    wanted = [path]
+    for name in ["summary.json", "candidates.csv", "best.txt", "best.npy"]:
+        p = artifact_root / name
+        if p.exists() and p not in wanted:
+            wanted.append(p)
+    for pattern in ["*.png", "*.gif", "*.webp", "viz/*.png", "viz/*.gif", "viz/*.webp"]:
+        for p in sorted(artifact_root.glob(pattern)):
+            if p.exists() and p not in wanted:
+                wanted.append(p)
+
+    body = body_from_npy(path)
+    metrics = {}
+    if isinstance(summary, dict):
+        metrics.update({k: v for k, v in summary.items() if k.startswith("n_")})
+    if isinstance(raw_buckets, dict):
+        for k in ["score_float", "score_std", "score_min", "score_max", "n_voxels", "stochastic", "seeds"]:
+            if k in raw_buckets:
+                metrics[k] = raw_buckets[k]
+
+    return {
+        "path": str(path),
+        "root": str(artifact_root),
+        "name": path.name,
+        "kind": "voxel_body" if body else file_kind(path),
+        "files": [file_item(p) for p in wanted if p.exists()],
+        "images": [file_item(p) for p in wanted if p.exists() and file_kind(p) == "image"],
+        "body": body,
+        "preview": text_preview(path),
+        "metrics": metrics,
+    }
 
 
 def node_trace(journal, hyp_id, n=16):
@@ -185,6 +335,7 @@ def build_payload(journal, db_filename=None):
 
     con = sqlite3.connect(db)
     con.row_factory = sqlite3.Row
+    exp_meta = experiment_meta(journal)
 
     all_times = []
     for table in ["agents", "hypotheses", "submissions", "verifications", "manager_events"]:
@@ -193,8 +344,8 @@ def build_payload(journal, db_filename=None):
     if not all_times:
         return {
             "meta": {
-                "baseline": BASELINE,
-                "target": TARGET,
+                "baseline": exp_meta["baseline"],
+                "target": exp_meta["target"],
                 "best": None,
                 "bestNode": None,
                 "gap": None,
@@ -202,12 +353,15 @@ def build_payload(journal, db_filename=None):
                 "tNow": 1,
                 "totalNodes": 0,
                 "excludedTreeItems": 0,
-                "problem": "16x16 general matmul",
-                "metric": "energy",
+                "problem": exp_meta["problem"],
+                "metric": exp_meta["metric"],
+                "direction": exp_meta["direction"],
+                "domain": exp_meta["domain"],
                 "source": str(journal),
                 "sourceDb": db.name,
                 "seed": journal.name,
                 "startedAt": datetime.now(timezone.utc).isoformat(),
+                "visualizations": exp_meta["visualizations"],
             },
             "nodes": [],
             "hypotheses": [],
@@ -264,9 +418,11 @@ def build_payload(journal, db_filename=None):
         subs = subs_by_hyp.get(hyp_id, [])
         def sub_key(sub):
             ver = ver_by_sub.get(sub["id"])
+            score = score_from_verification(ver)
+            ordered_score = -score if score is not None and is_maximize(exp_meta) else score
             return (
-                0 if ver and ver.get("official_score") is not None else 1,
-                ver.get("official_score") if ver and ver.get("official_score") is not None else 10**12,
+                0 if score is not None else 1,
+                ordered_score if ordered_score is not None else 10**12,
                 sub["created_at"],
             )
         sub = sorted(subs, key=sub_key)[0] if subs else None
@@ -278,12 +434,14 @@ def build_payload(journal, db_filename=None):
         if not isinstance(best, dict):
             best = {}
 
-        score = ver.get("official_score") if ver else best.get("score")
+        raw_buckets = load_json(ver["buckets_json"], {}) if ver else best
+        score = score_from_verification(ver, best.get("score"))
         decision = ver.get("decision") if ver else None
         semantic = ver.get("semantic") if ver else None
-        buckets = bucketize(load_json(ver["buckets_json"], {})) if ver else bucketize(best)
+        buckets = bucketize(raw_buckets)
         family = family_from(context, summary)
-        candidate = best.get("name") or family or hyp["id"]
+        candidate = best.get("name") or summary.get("name") or family or hyp["id"]
+        artifact = {"details": artifact_details(journal, sub.get("artifact_path"), summary, raw_buckets)} if sub else {}
         proposer_role = next((a["role"] for a in agents if a["id"] == hyp["proposer_agent_id"]), "creative_explorer")
         is_transfer = evolution.get("event") == "horizontal_transfer"
         if is_transfer:
@@ -337,6 +495,7 @@ def build_payload(journal, db_filename=None):
         })
         if context_parent == hyp_id or context_parent == inferred_parent:
             context_parent = None
+        claimed_at = hyp["updated_at"] if hyp["claimed_by"] else sub["created_at"] if sub else None
 
         nodes.append({
             "id": hyp_id,
@@ -349,7 +508,7 @@ def build_payload(journal, db_filename=None):
             "proposer": hyp["proposer_agent_id"],
             "proposerRole": proposer_role,
             "tProposed": seconds(hyp["created_at"], start),
-            "tClaimed": seconds(hyp["updated_at"], start) if hyp["claimed_by"] else None,
+            "tClaimed": seconds(claimed_at, start) if claimed_at else None,
             "impl": sub["implementor_agent_id"] if sub else hyp["claimed_by"],
             "tSubmitted": seconds(sub["created_at"], start) if sub else None,
             "verifier": ver["verifier_agent_id"] if ver else sub["claimed_by"] if sub else None,
@@ -360,6 +519,7 @@ def build_payload(journal, db_filename=None):
             "subId": sub["id"] if sub else None,
             "verId": ver["id"] if ver else None,
             "buckets": buckets,
+            "artifact": artifact,
             "fit": None,
             "abandoned": hyp["status"] == "abandoned",
             "rationale": hyp["rationale"],
@@ -379,10 +539,19 @@ def build_payload(journal, db_filename=None):
         n["gen"] = gen_of(n)
 
     verified_scores = [n["score"] for n in nodes if n["outcome"] == "accept" and n["score"] is not None]
-    best_score = min(verified_scores) if verified_scores else None
+    if verified_scores:
+        best_score = max(verified_scores) if is_maximize(exp_meta) else min(verified_scores)
+    else:
+        best_score = None
+    fit_baseline = best_score if best_score is not None else exp_meta["baseline"]
     for n in nodes:
-        n["fit"] = fit_bin(n["score"], best_score or BASELINE)
-    best_node = next((n for n in nodes if best_score is not None and n["score"] == best_score and n["outcome"] == "accept"), None)
+        n["fit"] = fit_bin_meta(n["score"], fit_baseline, exp_meta)
+    best_candidates = [
+        n for n in nodes
+        if best_score is not None and n["score"] == best_score and n["outcome"] == "accept"
+    ]
+    best_candidates.sort(key=lambda n: n.get("tVerified") or -1, reverse=True)
+    best_node = best_candidates[0] if best_candidates else None
     if best_node:
         best_node["isFrontier"] = True
     node_ids = {n["id"] for n in nodes}
@@ -421,30 +590,40 @@ def build_payload(journal, db_filename=None):
 
     def frontier_at(t):
         b = None
+        maximize = is_maximize(exp_meta)
         for n in nodes:
             if n["outcome"] == "accept" and n["score"] is not None and n["tVerified"] is not None and n["tVerified"] <= t:
-                b = n["score"] if b is None else min(b, n["score"])
+                if b is None:
+                    b = n["score"]
+                else:
+                    b = max(b, n["score"]) if maximize else min(b, n["score"])
         return b
 
     series = [{"t": (i / 60) * t_max, "best": frontier_at((i / 60) * t_max)} for i in range(61)]
+    gap = None
+    if best_score is not None:
+        gap = (exp_meta["target"] - best_score) if is_maximize(exp_meta) else (best_score - exp_meta["target"])
     payload = {
         "meta": {
-            "baseline": BASELINE,
-            "target": TARGET,
+            "baseline": exp_meta["baseline"],
+            "target": exp_meta["target"],
             "best": best_score,
             "bestNode": best_node["id"] if best_node else None,
-            "gap": best_score - TARGET if best_score is not None else None,
+            "gap": gap,
             "tMax": t_max,
             "tNow": t_now,
             "totalNodes": len(nodes),
             "excludedTreeItems": excluded_tree_items,
             "haltedBranches": len(halted_branches),
-            "problem": "16x16 general matmul",
-            "metric": "energy",
+            "problem": exp_meta["problem"],
+            "metric": exp_meta["metric"],
+            "direction": exp_meta["direction"],
+            "domain": exp_meta["domain"],
             "source": str(journal),
             "sourceDb": db.name,
             "seed": journal.name,
             "startedAt": start.isoformat(),
+            "visualizations": exp_meta["visualizations"],
         },
         "nodes": nodes,
         "transferEdges": transfer_edges,
@@ -462,6 +641,7 @@ def build_payload(journal, db_filename=None):
 # world (window.APP) and each Compare run (window.EVO_RUNS).
 WORLD_FACTORY_JS = r"""
   function appWorld(payload) {
+    const maximize = String(payload.meta.direction || 'minimize').toLowerCase() === 'maximize';
     function statusAt(n, T) {
       if (T < n.tProposed) return 'unborn';
       if (n.abandoned) return T > n.tProposed + 18 ? 'abandoned' : 'queued';
@@ -475,7 +655,7 @@ WORLD_FACTORY_JS = r"""
       let best = null;
       payload.nodes.forEach((n) => {
         if (n.outcome === 'accept' && n.score != null && n.tVerified != null && n.tVerified <= T) {
-          best = best == null ? n.score : Math.min(best, n.score);
+          best = best == null ? n.score : (maximize ? Math.max(best, n.score) : Math.min(best, n.score));
         }
       });
       return best;
@@ -483,7 +663,11 @@ WORLD_FACTORY_JS = r"""
     function fitBin(score) {
       if (score == null) return null;
       const best = payload.meta.best == null ? payload.meta.baseline : payload.meta.best;
-      const span = Math.max(1, payload.meta.baseline - best);
+      if (maximize) {
+        const span = Math.max(1e-9, best - payload.meta.baseline);
+        return Math.max(0, Math.min(6, Math.round(((score - payload.meta.baseline) / span) * 6)));
+      }
+      const span = Math.max(1e-9, payload.meta.baseline - best);
       return Math.max(0, Math.min(6, Math.round(((payload.meta.baseline - score) / span) * 6)));
     }
     function agentActivity(T) {

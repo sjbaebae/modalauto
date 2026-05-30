@@ -7,9 +7,19 @@
   const { useState, useRef, useMemo, Fragment } = React;
   const RUNS = window.EVO_RUNS;
   const BY = window.EVO_RUN_BY_ID;
-  const fmt = (n) => n == null ? '—' : Math.round(n).toLocaleString();
+  const fmt = (n) => {
+    if (n == null) return '—';
+    if (typeof n !== 'number') return String(n);
+    if (!Number.isFinite(n)) return String(n);
+    const abs = Math.abs(n);
+    const maximumFractionDigits = Number.isInteger(n) ? 0 : abs >= 100 ? 2 : abs >= 1 ? 3 : 4;
+    return n.toLocaleString(undefined, { maximumFractionDigits });
+  };
   const mmss = (t) => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.round(t % 60)).padStart(2, '0');
   const fitVar = (f) => `var(--fit-${f})`;
+  const isMaximize = (world) => String((world.meta && world.meta.direction) || 'minimize').toLowerCase() === 'maximize';
+  const isMatmulDomain = (world) => String((world.meta && world.meta.domain) || '').toLowerCase().includes('matmul');
+  const betterScore = (world, a, b) => isMaximize(world) ? b.score - a.score : a.score - b.score;
 
   function lineageArr(world, nodeId) { const a = []; let c = world.nodes.find((n) => n.id === nodeId); while (c) { a.unshift(c); c = c.parent ? world.nodes.find((n) => n.id === c.parent) : null; } return a; }
   function gen1Of(world, node) { let c = node; while (c && c.gen > 1) c = world.nodes.find((n) => n.id === c.parent); return c; }
@@ -20,6 +30,7 @@
   // A and B share a real ancestor at gen > 0 instead of only the root.
   function bestBranchPair(world) {
     const nodes = world.nodes;
+    const maximize = isMaximize(world);
     const byId = new Map(nodes.map((n) => [n.id, n]));
     const childrenOf = new Map();
     nodes.forEach((n) => { if (n.parent && byId.has(n.parent)) { (childrenOf.get(n.parent) || childrenOf.set(n.parent, []).get(n.parent)).push(n); } });
@@ -32,7 +43,7 @@
       let best = scored(n) ? n : null;
       (childrenOf.get(n.id) || []).forEach((c) => {
         const cb = visit(c);
-        if (cb && (!best || cb.score < best.score)) best = cb;
+        if (cb && (!best || (maximize ? cb.score > best.score : cb.score < best.score))) best = cb;
       });
       bestInSubtree.set(n.id, best);
       return best;
@@ -46,17 +57,17 @@
       const kids = (childrenOf.get(f.id) || [])
         .map((c) => ({ c, leaf: bestInSubtree.get(c.id) }))
         .filter((x) => x.leaf)
-        .sort((a, b) => a.leaf.score - b.leaf.score);
+        .sort((a, b) => maximize ? b.leaf.score - a.leaf.score : a.leaf.score - b.leaf.score);
       if (kids.length < 2) return;
       const a = kids[0].leaf, b = kids[1].leaf;
       if (a.id === b.id) return;
       const cand = { forkGen: f.gen, sum: a.score + b.score, a: a.id, b: b.id };
-      if (!pick || cand.forkGen > pick.forkGen || (cand.forkGen === pick.forkGen && cand.sum < pick.sum)) pick = cand;
+      if (!pick || cand.forkGen > pick.forkGen || (cand.forkGen === pick.forkGen && (maximize ? cand.sum > pick.sum : cand.sum < pick.sum))) pick = cand;
     });
     if (pick) return { a: pick.a, b: pick.b };
 
     // Fallback (flat/degenerate tree): global best vs next-best accepted leaf.
-    const acc = nodes.filter(scored).sort((x, y) => x.score - y.score);
+    const acc = nodes.filter(scored).sort((x, y) => betterScore(world, x, y));
     const best = byId.get(world.meta.bestNode) || acc[0] || nodes[0];
     const b = acc.find((n) => n.id !== best.id) || best;
     return { a: best.id, b: b.id };
@@ -73,12 +84,32 @@
     const W = 1320, H = 640, pad = 54;
     const panelRef = useRef(null);
     const [hover, setHover] = useState(null);
-    const dom = useMemo(() => ({ sMax: 108880, sMin: world.meta.best - 1200, tMax: world.meta.tMax }), [world.meta.seed]);
+    const dom = useMemo(() => {
+      const values = world.nodes.map((n) => n.score).concat([world.meta.baseline, world.meta.best, world.meta.target])
+        .filter((v) => typeof v === 'number' && Number.isFinite(v));
+      if (!values.length) values.push(0, 1);
+      const low = Math.min(...values);
+      const high = Math.max(...values);
+      return { low, high, span: Math.max(1e-9, high - low), worst: isMaximize(world) ? low : high, tMax: world.meta.tMax };
+    }, [world.meta.seed]);
+    const scoreY = (score) => {
+      const sc = Math.max(dom.low, Math.min(dom.high, score));
+      const rank = isMaximize(world) ? (dom.high - sc) / dom.span : (sc - dom.low) / dom.span;
+      return pad + rank * (H - 2 * pad);
+    };
     const pos = useMemo(() => {
       const ls = {};
-      world.nodes.forEach((n, i) => { if (n.score != null) ls[n.id] = n.score; else { const p = n.parent ? ls[n.parent] : dom.sMax; const nudge = n.outcome === 'reject' ? 2600 : 900; ls[n.id] = Math.min(dom.sMax, (p || dom.sMax) + ((i % 7) - 3) * 220 + nudge * 0.4); } });
-      const span = dom.sMax - dom.sMin || 1; const o = {};
-      world.nodes.forEach((n) => { o[n.id] = { x: pad + (n.tProposed / dom.tMax) * (W - 2 * pad), y: pad + ((Math.max(dom.sMin, Math.min(dom.sMax, ls[n.id])) - dom.sMin) / span) * (H - 2 * pad) }; });
+      world.nodes.forEach((n, i) => {
+        if (n.score != null) ls[n.id] = n.score;
+        else {
+          const p = n.parent ? ls[n.parent] : dom.worst;
+          const nudge = (n.outcome === 'reject' ? 0.12 : 0.04) * dom.span * (isMaximize(world) ? -1 : 1);
+          const jitter = ((i % 7) - 3) * dom.span * 0.01;
+          ls[n.id] = Math.max(dom.low, Math.min(dom.high, (p == null ? dom.worst : p) + nudge + jitter));
+        }
+      });
+      const o = {};
+      world.nodes.forEach((n) => { o[n.id] = { x: pad + (n.tProposed / dom.tMax) * (W - 2 * pad), y: scoreY(ls[n.id]) }; });
       return o;
     }, [world.meta.seed]);
     const linA = useMemo(() => new Set(lineageArr(world, aNode).map((n) => n.id)), [world.meta.seed, aNode]);
@@ -136,7 +167,7 @@
           <div className="ctree-tip" style={{ left: Math.min(hover.mx + 12, (panelRef.current ? panelRef.current.clientWidth : 500) - 184), top: hover.my + 10 }}>
             <div className="ctt-title">{hover.n.title}</div>
             <div className="ctt-meta mono">{hover.n.id + ' · gen ' + hover.n.gen + ' · ' + hover.n.family}</div>
-            <div className="ctt-score mono" style={{ color: hover.n.score != null ? fitVar(hover.n.fit) : 'var(--ink-3)' }}>{hover.n.score != null ? fmt(hover.n.score) + ' energy' : hover.st}</div>
+            <div className="ctt-score mono" style={{ color: hover.n.score != null ? fitVar(hover.n.fit) : 'var(--ink-3)' }}>{hover.n.score != null ? fmt(hover.n.score) + ' ' + (world.meta.metric || 'score') : hover.st}</div>
           </div>
         ) : null}
       </div>
@@ -144,10 +175,47 @@
   }
 
   // ---- run snapshot below ----
+  function artifactUrl(path) {
+    return '/api/artifact?path=' + encodeURIComponent(path);
+  }
+  function VoxelMini({ artifact }) {
+    const body = artifact && artifact.body;
+    const grid = body && Array.isArray(body.grid) ? body.grid : null;
+    if (!grid || !grid.length) return null;
+    const cols = Math.max(1, ...grid.map((row) => Array.isArray(row) ? row.length : 0));
+    return (
+      <div className="voxel-grid snap-voxel" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+        {grid.flatMap((row, y) => row.map((cell, x) => <span key={y + ':' + x} className={'voxel v' + cell} />))}
+      </div>
+    );
+  }
+  function ArtifactSummary({ node }) {
+    const artifact = node && node.artifact ? node.artifact.details : null;
+    const metrics = Object.entries((artifact && artifact.metrics) || {}).filter(([, v]) => v != null).slice(0, 8);
+    const files = artifact && Array.isArray(artifact.files) ? artifact.files : [];
+    return (
+      <div className="artifact-view snap-artifacts">
+        <VoxelMini artifact={artifact} />
+        {metrics.length ? <div className="artifact-metrics">
+          {metrics.map(([k, v]) => <div key={k} className="prow"><span className="pk">{k.replace(/_/g, ' ')}</span><span className="pv">{Array.isArray(v) ? v.join(', ') : fmt(v)}</span></div>)}
+        </div> : null}
+        {files.length ? <div className="artifact-files">
+          {files.slice(0, 5).map((file) => <a key={file.path} className="artifact-file" href={artifactUrl(file.path)} target="_blank" rel="noreferrer">
+            <span className="artifact-kind">{file.kind}</span><span className="artifact-name">{file.name}</span>
+          </a>)}
+        </div> : null}
+      </div>
+    );
+  }
+
   function RunSnapshot({ label, color, node, world, speed }) {
     const parent = node.parent ? world.nodes.find((n) => n.id === node.parent) : null;
     const d = parent && parent.score != null && node.score != null ? node.score - parent.score : null;
+    const deltaGood = d == null ? false : isMaximize(world) ? d > 0 : d < 0;
+    const deltaBad = d == null ? false : isMaximize(world) ? d < 0 : d > 0;
     const RunPlayback = window.RunPlayback;
+    const showMatmul = isMatmulDomain(world) && RunPlayback;
+    const metric = world.meta.metric || 'score';
     return (
       <div className="snap">
         <div className="snap-head">
@@ -160,24 +228,24 @@
           <div className="snap-cand mono">{node.candidate}</div>
         </div>
         <div className="snap-metrics">
-          <div className="snap-m"><span className="snap-mk">energy</span><span className="snap-mv mono">{fmt(node.score)}</span></div>
-          <div className="snap-m"><span className="snap-mk">Δ step</span><span className="snap-mv mono" style={{ color: d == null ? 'var(--ink-3)' : d < 0 ? 'var(--ok)' : 'var(--bad)' }}>{d == null ? '—' : (d < 0 ? '▼ ' : '▲ ') + fmt(Math.abs(d))}</span></div>
+          <div className="snap-m"><span className="snap-mk">{metric}</span><span className="snap-mv mono">{fmt(node.score)}</span></div>
+          <div className="snap-m"><span className="snap-mk">Δ step</span><span className="snap-mv mono" style={{ color: d == null ? 'var(--ink-3)' : deltaGood ? 'var(--ok)' : deltaBad ? 'var(--bad)' : 'var(--ink-3)' }}>{d == null ? '—' : (d < 0 ? '▼ ' : '▲ ') + fmt(Math.abs(d))}</span></div>
           <div className="snap-m"><span className="snap-mk">family</span><span className="snap-mv mono">{node.family}</span></div>
         </div>
-        <div className="snap-run-wrap"><RunPlayback node={node} speed={speed} key={node.id} /></div>
+        {showMatmul ? <div className="snap-run-wrap"><RunPlayback node={node} speed={speed} key={node.id} /></div> : <ArtifactSummary node={node} />}
         {/* Real submitted code when available (from the journal artifact); fall
             back to a representative IR only for mock/codeless nodes. */}
-        {node.code ? (
+        {showMatmul && node.code ? (
           <Fragment>
             <div className="block-label" style={{ margin: '4px 0 6px' }}>{'candidate code · ' + (node.codeLang || 'python')}</div>
             <pre className="well ir">{node.code}</pre>
           </Fragment>
-        ) : (
+        ) : showMatmul ? (
           <Fragment>
             <div className="block-label" style={{ margin: '4px 0 6px' }}>candidate IR · representative</div>
             <pre className="well ir">{genIR(node)}</pre>
           </Fragment>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -213,6 +281,7 @@
     const seg = (buckets) => {
       if (!buckets) return <div className="bcmp-bar" />;
       const tot = order.reduce((s, k) => s + buckets[k], 0);
+      if (!tot) return <div className="bcmp-bar" />;
       return <div className="bcmp-bar">{order.map((k, i) => <div key={k} className="bcmp-seg" style={{ width: (buckets[k] / tot * 100) + '%', background: `var(--fit-${i + 1})` }} title={k} />)}</div>;
     };
     return (
@@ -253,7 +322,7 @@
     // best-first, so you can pick the exact two to compare at any time.
     const selectable = useMemo(() => world.nodes
       .filter((n) => n.outcome === 'accept' && n.score != null)
-      .sort((x, y) => x.score - y.score), [runId]);
+      .sort((x, y) => betterScore(world, x, y)), [runId]);
 
     // Chip = click to make this side active (then click a tree node), plus a
     // dropdown to choose the candidate for this branch directly.
@@ -317,8 +386,8 @@
             <div className="sb-scroll">
               <Section title="Branches">
                 <div className="drow dhead"><span className="dk" /><span className="dv" style={{ color: cA }}>A</span><span className="dv" style={{ color: cB }}>B</span></div>
-                <DiffRow k="Energy" a={nodeA.score} b={nodeB.score} lowerBetter />
-                <DiffRow k="vs baseline" a={world.meta.baseline - nodeA.score} b={world.meta.baseline - nodeB.score} f={(x) => '−' + fmt(x)} />
+                <DiffRow k={world.meta.metric || 'Score'} a={nodeA.score} b={nodeB.score} lowerBetter={!isMaximize(world)} />
+                <DiffRow k="vs baseline" a={nodeA.score - world.meta.baseline} b={nodeB.score - world.meta.baseline} f={(x) => (x > 0 ? '+' : '') + fmt(x)} lowerBetter={false} />
                 <DiffRow k="Generation" a={nodeA.gen} b={nodeB.gen} neutral />
                 <DiffRow k="Family" a={nodeA.family} b={nodeB.family} f={(x) => String(x || '—').replace(/_/g, ' ')} neutral />
                 <DiffRow k="Semantic" a={nodeA.semantic || '—'} b={nodeB.semantic || '—'} f={(x) => x} neutral />

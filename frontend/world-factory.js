@@ -1,5 +1,6 @@
 (function () {
   function appWorld(payload) {
+    const maximize = String(payload.meta.direction || 'minimize').toLowerCase() === 'maximize';
     function statusAt(n, T) {
       if (T < n.tProposed) return 'unborn';
       if (n.abandoned) return T > n.tProposed + 18 ? 'abandoned' : 'queued';
@@ -15,7 +16,7 @@
       let best = null;
       payload.nodes.forEach((n) => {
         if (n.outcome === 'accept' && n.score != null && n.tVerified != null && n.tVerified <= T) {
-          best = best == null ? n.score : Math.min(best, n.score);
+          best = best == null ? n.score : (maximize ? Math.max(best, n.score) : Math.min(best, n.score));
         }
       });
       return best;
@@ -23,7 +24,11 @@
     function fitBin(score) {
       if (score == null) return null;
       const best = payload.meta.best == null ? payload.meta.baseline : payload.meta.best;
-      const span = Math.max(1, payload.meta.baseline - best);
+      if (maximize) {
+        const span = Math.max(1e-9, best - payload.meta.baseline);
+        return Math.max(0, Math.min(6, Math.round(((score - payload.meta.baseline) / span) * 6)));
+      }
+      const span = Math.max(1e-9, payload.meta.baseline - best);
       return Math.max(0, Math.min(6, Math.round(((payload.meta.baseline - score) / span) * 6)));
     }
     function agentActivity(T) {

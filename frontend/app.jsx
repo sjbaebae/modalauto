@@ -19,8 +19,16 @@
     "showFeed": true
   }/*EDITMODE-END*/;
 
-  const fmt = (n) => n == null ? '—' : n.toLocaleString();
+  const fmt = (n) => {
+    if (n == null) return '—';
+    if (typeof n !== 'number') return String(n);
+    if (!Number.isFinite(n)) return String(n);
+    const abs = Math.abs(n);
+    const maximumFractionDigits = Number.isInteger(n) ? 0 : abs >= 100 ? 2 : abs >= 1 ? 3 : 4;
+    return n.toLocaleString(undefined, { maximumFractionDigits });
+  };
   const mmss = (t) => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.round(t % 60)).padStart(2, '0');
+  const directionLabel = () => String((E && E.meta && E.meta.direction) || 'minimize').toLowerCase() === 'maximize' ? 'maximize' : 'minimize';
 
   function Logo() {
     return (
@@ -47,7 +55,7 @@
     const working = E.agents.filter((a) => act[a.id] && act[a.id].alive && act[a.id].status === 'working').length;
     return (
       <div className="stat-row">
-        <div className="stat"><span className="k">Best energy</span>
+        <div className="stat"><span className="k">{'Best ' + (E.meta.metric || 'score')}</span>
           <span className="v" style={{ color: 'var(--fit-6)' }}>{fmt(best)}</span></div>
         <div className="stat"><span className="k">Experiments</span>
           <span className="v">{born}</span></div>
@@ -108,14 +116,19 @@
     }
 
     const sparkPath = useMemo(() => {
-      const s = E.series; const max = E.meta.baseline, min = E.meta.best;
+      const s = E.series;
+      const maximize = directionLabel() === 'maximize';
+      const values = [E.meta.baseline, E.meta.target].concat(s.map((p) => p.best)).filter((v) => typeof v === 'number' && Number.isFinite(v));
+      const lo = values.length ? Math.min(...values) : 0;
+      const hi = values.length ? Math.max(...values) : 1;
+      const span = Math.max(1e-9, hi - lo);
       return s.map((p, i) => {
         const x = (p.t / E.meta.tMax) * 100;
-        const denom = Math.max(1, max - min);
-        const y = p.best == null || min == null ? 92 : 92 - ((p.best - min) / denom) * 84;
+        const better = p.best == null ? 0 : maximize ? (p.best - lo) / span : (hi - p.best) / span;
+        const y = p.best == null ? 92 : 92 - Math.max(0, Math.min(1, better)) * 84;
         return (i === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
       }).join(' ');
-    }, []);
+    }, [E.series, E.meta.baseline, E.meta.target, E.meta.direction, E.meta.tMax]);
     const sparkFill = sparkPath + ` L 100 100 L 0 100 Z`;
 
     const setFromX = (clientX) => {
@@ -272,7 +285,7 @@
             </nav>
             <div className="prob">
               <span className="prob-name">{E.meta.problem}</span>
-              <span className="prob-sub mono">{'minimize ' + E.meta.metric + ' · baseline ' + fmt(E.meta.baseline)}</span>
+              <span className="prob-sub mono">{directionLabel() + ' ' + E.meta.metric + ' · baseline ' + fmt(E.meta.baseline)}</span>
             </div>
             <ChangelogBadge />
           </div>
