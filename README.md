@@ -34,12 +34,12 @@ experiments/<experiment_name>/
 From this directory:
 
 ```bash
-python bin/autoresearch-team --experiment matmul_reference init
-python bin/autoresearch-matmul-loop --experiment matmul_reference --run-id smoke --strategy baseline --verify-cases 1 --verify-top 1
-python bin/autoresearch-team --experiment matmul_reference status
+python bin/autoresearch-team --experiment matmul init
+python bin/autoresearch-matmul-loop --experiment matmul --run-id smoke --strategy baseline --verify-cases 1 --verify-top 1
+python bin/autoresearch-team --experiment matmul status
 ```
 
-The default experiment is `matmul_reference`, so the `--experiment` flag can be omitted for the reference loop.
+The default experiment is `matmul`, so the `--experiment` flag can be omitted for the reference loop.
 
 ## New Experiment
 
@@ -98,7 +98,7 @@ The current agent implementor calls the workflow runner with:
 - `--hypothesis-json <path>`
 - `--journal-root <path>`
 
-The reference matmul runner lives at `experiments/matmul_reference/loop.py` and writes:
+The reference matmul runner lives at `experiments/matmul/loop.py` and writes:
 
 - `journal/artifacts/<run-id>/summary.json`
 - `journal/artifacts/<run-id>/best.ir`

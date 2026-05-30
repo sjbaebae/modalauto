@@ -17,6 +17,7 @@ REPO_ROOT = AUTORESEARCH_ROOT.parent
 DEFAULT_AUTORESEARCH = AUTORESEARCH_ROOT
 CHANGELOG_NAME = "frontend_changelog.jsonl"
 WATCH_TABLES = ["agents", "hypotheses", "submissions", "verifications", "manager_events"]
+CONTROL_TABLES = ["branch_controls", "control_actions"]
 
 
 def pick_journal():
@@ -88,7 +89,7 @@ def db_signature(journal):
         con = sqlite3.connect(db)
         ensure_frontend_hooks(con)
         version = con.execute("select version from frontend_state where id = 1").fetchone()[0]
-        for table in WATCH_TABLES:
+        for table in [*WATCH_TABLES, *CONTROL_TABLES]:
             counts[table] = con.execute(f"select count(*) from {table}").fetchone()[0]
         con.close()
     except sqlite3.Error as exc:
@@ -102,6 +103,7 @@ def db_signature(journal):
 
 
 def ensure_frontend_hooks(con):
+    ensure_control_tables(con)
     con.execute(
         """
         CREATE TABLE IF NOT EXISTS frontend_state (
@@ -117,7 +119,7 @@ def ensure_frontend_hooks(con):
         VALUES (1, 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
         """
     )
-    for table in WATCH_TABLES:
+    for table in [*WATCH_TABLES, *CONTROL_TABLES]:
         for op, event in [("ai", "INSERT"), ("au", "UPDATE"), ("ad", "DELETE")]:
             con.execute(
                 f"""
@@ -134,13 +136,43 @@ def ensure_frontend_hooks(con):
     con.commit()
 
 
+def ensure_control_tables(con):
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS branch_controls (
+            branch_id       TEXT PRIMARY KEY REFERENCES hypotheses(id),
+            status          TEXT NOT NULL DEFAULT 'halted'
+                            CHECK (status IN ('halted', 'active')),
+            note            TEXT,
+            created_at      TEXT NOT NULL,
+            updated_at      TEXT NOT NULL
+        )
+        """
+    )
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS control_actions (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            kind                 TEXT NOT NULL,
+            source_hypothesis_id TEXT REFERENCES hypotheses(id),
+            target_hypothesis_id TEXT REFERENCES hypotheses(id),
+            body                 TEXT,
+            payload_json         TEXT NOT NULL DEFAULT '{}',
+            created_at           TEXT NOT NULL
+        )
+        """
+    )
+    con.execute("CREATE INDEX IF NOT EXISTS idx_branch_controls_status ON branch_controls(status, updated_at)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_control_actions_created ON control_actions(created_at)")
+
+
 def changelog_path(journal):
     return journal / CHANGELOG_NAME
 
 
 def append_changelog_if_changed(journal):
-    payload = build_payload(journal)
     db_hash, counts = db_signature(journal)
+    payload = build_payload(journal)
     path = changelog_path(journal)
     if not any(counts.get(table, 0) for table in WATCH_TABLES):
         return payload, db_hash, counts
@@ -199,6 +231,87 @@ def read_changelog(journal):
     return frames
 
 
+def now_iso():
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def read_json_body(handler):
+    length = int(handler.headers.get("Content-Length") or 0)
+    if length <= 0:
+        return {}
+    raw = handler.rfile.read(length).decode("utf-8")
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("JSON body must be an object")
+    return data
+
+
+def hypothesis_exists(con, hyp_id):
+    row = con.execute("SELECT id FROM hypotheses WHERE id = ?", (hyp_id,)).fetchone()
+    return row is not None
+
+
+def halted_ancestors(con, hyp_id):
+    seen = set()
+    current = hyp_id
+    halted = []
+    while current and current not in seen:
+        seen.add(current)
+        row = con.execute(
+            """
+            SELECT h.parent_hypothesis_id, bc.status
+            FROM hypotheses h
+            LEFT JOIN branch_controls bc ON bc.branch_id = h.id AND bc.status = 'halted'
+            WHERE h.id = ?
+            """,
+            (current,),
+        ).fetchone()
+        if row is None:
+            break
+        if row["status"] == "halted":
+            halted.append(current)
+        current = row["parent_hypothesis_id"]
+    return halted
+
+
+def next_control_hyp_id(con):
+    n = con.execute("SELECT COUNT(*) AS n FROM hypotheses WHERE id LIKE 'user-hyp-%'").fetchone()["n"]
+    while True:
+        n += 1
+        hyp_id = f"user-hyp-{n:04d}"
+        if not hypothesis_exists(con, hyp_id):
+            return hyp_id
+
+
+def insert_control_hypothesis(con, *, title, rationale, movement, parent_id, priority, context):
+    hyp_id = next_control_hyp_id(con)
+    stamp = now_iso()
+    con.execute(
+        """
+        INSERT INTO hypotheses
+            (id, team_id, proposer_agent_id, parent_hypothesis_id, priority, title, rationale,
+             expected_movement, context_json, created_at, updated_at)
+        VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            hyp_id,
+            "global",
+            parent_id,
+            int(priority),
+            title[:180] or "User control hypothesis",
+            rationale,
+            movement,
+            json.dumps(context, sort_keys=True),
+            stamp,
+            stamp,
+        ),
+    )
+    return hyp_id
+
+
 class AutoresearchHandler(SimpleHTTPRequestHandler):
     def end_no_cache_headers(self, content_type):
         self.send_response(200)
@@ -209,6 +322,46 @@ class AutoresearchHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
+        if path == "/api/events":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Connection", "keep-alive")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            last_hash = None
+            last_heartbeat = 0.0
+            try:
+                while True:
+                    journal = pick_journal()
+                    now = time.time()
+                    if journal and detect_db(journal).exists():
+                        db_hash, counts = db_signature(journal)
+                        if db_hash != last_hash:
+                            payload = {
+                                "journal": str(journal),
+                                "hash": db_hash,
+                                "counts": counts,
+                            }
+                            self.wfile.write(b"event: change\n")
+                            self.wfile.write(f"data: {json.dumps(payload, separators=(',', ':'))}\n\n".encode("utf-8"))
+                            self.wfile.flush()
+                            last_hash = db_hash
+                            last_heartbeat = now
+                        elif now - last_heartbeat >= 15:
+                            self.wfile.write(b": heartbeat\n\n")
+                            self.wfile.flush()
+                            last_heartbeat = now
+                    elif last_hash is not None:
+                        self.wfile.write(b"event: missing\n")
+                        self.wfile.write(b"data: {\"journal\":null}\n\n")
+                        self.wfile.flush()
+                        last_hash = None
+                        last_heartbeat = now
+                    time.sleep(1)
+            except (BrokenPipeError, ConnectionResetError, OSError):
+                return
+
         if path == "/real-data.js":
             journal = pick_journal()
             self.end_no_cache_headers("text/javascript; charset=utf-8")
@@ -277,6 +430,174 @@ class AutoresearchHandler(SimpleHTTPRequestHandler):
             return
 
         super().do_GET()
+
+    def send_json(self, status, payload):
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+        if not path.startswith("/api/control/"):
+            self.send_error(404)
+            return
+        journal = pick_journal()
+        if not journal:
+            self.send_json(404, {"ok": False, "error": "no journal DB found"})
+            return
+        db = detect_db(journal)
+        try:
+            data = read_json_body(self)
+            con = sqlite3.connect(db)
+            con.row_factory = sqlite3.Row
+            ensure_frontend_hooks(con)
+            stamp = now_iso()
+            if path == "/api/control/halt":
+                node_id = str(data.get("nodeId") or "")
+                if not node_id or not hypothesis_exists(con, node_id):
+                    raise ValueError("nodeId must reference an existing hypothesis")
+                note = str(data.get("note") or "")
+                con.execute(
+                    """
+                    INSERT INTO branch_controls (branch_id, status, note, created_at, updated_at)
+                    VALUES (?, 'halted', ?, ?, ?)
+                    ON CONFLICT(branch_id) DO UPDATE SET
+                        status = 'halted',
+                        note = excluded.note,
+                        updated_at = excluded.updated_at
+                    """,
+                    (node_id, note, stamp, stamp),
+                )
+                con.execute(
+                    "INSERT INTO control_actions (kind, target_hypothesis_id, body, payload_json, created_at) VALUES (?, ?, ?, ?, ?)",
+                    ("halt_branch", node_id, note, json.dumps(data, sort_keys=True), stamp),
+                )
+                con.commit()
+                self.send_json(200, {"ok": True, "branchId": node_id, "status": "halted"})
+            elif path == "/api/control/unhalt":
+                node_id = str(data.get("nodeId") or "")
+                if not node_id or not hypothesis_exists(con, node_id):
+                    raise ValueError("nodeId must reference an existing hypothesis")
+                con.execute(
+                    """
+                    INSERT INTO branch_controls (branch_id, status, note, created_at, updated_at)
+                    VALUES (?, 'active', NULL, ?, ?)
+                    ON CONFLICT(branch_id) DO UPDATE SET
+                        status = 'active',
+                        updated_at = excluded.updated_at
+                    """,
+                    (node_id, stamp, stamp),
+                )
+                con.execute(
+                    "INSERT INTO control_actions (kind, target_hypothesis_id, payload_json, created_at) VALUES (?, ?, ?, ?)",
+                    ("unhalt_branch", node_id, json.dumps(data, sort_keys=True), stamp),
+                )
+                con.commit()
+                self.send_json(200, {"ok": True, "branchId": node_id, "status": "active"})
+            elif path == "/api/control/inject":
+                node_id = str(data.get("nodeId") or "") or None
+                mode = str(data.get("mode") or "branch")
+                text = str(data.get("text") or "").strip()
+                if not text:
+                    raise ValueError("text is required")
+                if mode == "open":
+                    node_id = None
+                elif not node_id or not hypothesis_exists(con, node_id):
+                    raise ValueError("nodeId must reference an existing hypothesis for branch injection")
+                if node_id and halted_ancestors(con, node_id):
+                    raise ValueError("cannot inject into a halted branch")
+                priority = int(data.get("priority") or 60)
+                hyp_id = insert_control_hypothesis(
+                    con,
+                    title=("User injected branch" if node_id else "User open hypothesis"),
+                    rationale=text,
+                    movement="User-injected information should be prioritized by implementors.",
+                    parent_id=node_id,
+                    priority=priority,
+                    context={
+                        "source": "user_control",
+                        "control": "inject_text",
+                        "mode": mode,
+                        "text": text,
+                        "implementation": {
+                            "operator": "enumerate_schedule_family",
+                            "user_instruction": text,
+                        },
+                    },
+                )
+                con.execute(
+                    "INSERT INTO control_actions (kind, target_hypothesis_id, body, payload_json, created_at) VALUES (?, ?, ?, ?, ?)",
+                    ("inject_text", node_id, text, json.dumps({"created_hypothesis_id": hyp_id, **data}, sort_keys=True), stamp),
+                )
+                con.commit()
+                self.send_json(200, {"ok": True, "hypothesisId": hyp_id})
+            elif path == "/api/control/transfer":
+                source_id = str(data.get("sourceId") or "")
+                target_id = str(data.get("targetId") or "")
+                if not source_id or not target_id:
+                    raise ValueError("sourceId and targetId are required")
+                if source_id == target_id:
+                    raise ValueError("sourceId and targetId must differ")
+                if not hypothesis_exists(con, source_id) or not hypothesis_exists(con, target_id):
+                    raise ValueError("sourceId and targetId must reference existing hypotheses")
+                if halted_ancestors(con, target_id):
+                    raise ValueError("cannot transfer into a halted destination branch")
+                note = str(data.get("note") or "")
+                source = con.execute("SELECT title, context_json FROM hypotheses WHERE id = ?", (source_id,)).fetchone()
+                target = con.execute("SELECT title FROM hypotheses WHERE id = ?", (target_id,)).fetchone()
+                source_context = json.loads(source["context_json"] or "{}")
+                source_impl = source_context.get("implementation") if isinstance(source_context, dict) else {}
+                if not isinstance(source_impl, dict):
+                    source_impl = {}
+                priority = int(data.get("priority") or 70)
+                hyp_id = insert_control_hypothesis(
+                    con,
+                    title=f"User gene transfer: {source_id[:10]} -> {target_id[:10]}",
+                    rationale=note or f"Transfer implementation structure from {source['title']} into {target['title']}.",
+                    movement="Recombine source branch information into the selected destination branch.",
+                    parent_id=target_id,
+                    priority=priority,
+                    context={
+                        "source": "user_control",
+                        "control": "gene_transfer",
+                        "implementation": {
+                            **source_impl,
+                            "operator": source_impl.get("operator") or "enumerate_schedule_family",
+                            "transfer_from": source_id,
+                            "transfer_to": target_id,
+                            "user_note": note,
+                        },
+                        "evolution": {
+                            "event": "horizontal_transfer",
+                            "donor_hypothesis_id": source_id,
+                            "recipient_hypothesis_id": target_id,
+                            "reason": note or "manual gene transfer",
+                        },
+                    },
+                )
+                con.execute(
+                    """
+                    INSERT INTO control_actions
+                        (kind, source_hypothesis_id, target_hypothesis_id, body, payload_json, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    ("gene_transfer", source_id, target_id, note, json.dumps({"created_hypothesis_id": hyp_id, **data}, sort_keys=True), stamp),
+                )
+                con.commit()
+                self.send_json(200, {"ok": True, "hypothesisId": hyp_id})
+            else:
+                self.send_json(404, {"ok": False, "error": "unknown control endpoint"})
+            con.close()
+        except Exception as exc:
+            try:
+                con.close()
+            except Exception:
+                pass
+            self.send_json(400, {"ok": False, "error": str(exc)})
 
     def end_headers(self):
         if self.path.endswith((".js", ".jsx", ".css", ".html")):

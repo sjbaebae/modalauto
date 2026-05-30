@@ -36,6 +36,8 @@
 .bchip-side { font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: 700; }
 .bchip-dot { width: 8px; height: 8px; border-radius: 50%; }
 .bchip-cand { font-size: var(--fs-tiny); color: var(--ink-1); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bchip-select { font-family: var(--font-mono); font-size: var(--fs-tiny); color: var(--ink-1); max-width: 200px; border: 0; background: none; cursor: pointer; outline: none; padding: 2px 2px; border-radius: var(--r-xs); }
+.bchip-select:hover { background: var(--surface-2); }
 .bchip-score { font-size: var(--fs-tiny); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .run-pick.inline { background: none; border: 0; height: auto; padding: 0; gap: 6px; margin-top: 2px; }
 .run-pick.inline .rp-side { color: var(--ink-3); }

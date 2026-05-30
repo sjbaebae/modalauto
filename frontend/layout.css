@@ -188,6 +188,25 @@
 .child-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--surface-1); cursor: pointer; font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-1); }
 .child-chip:hover { background: var(--surface-2); }
 
+.control-stack { display: flex; flex-direction: column; gap: var(--sp-3); }
+.control-row { display: flex; gap: var(--sp-2); align-items: center; }
+.control-row .btn { flex: none; }
+.control-text,
+.control-select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--surface-inset);
+  color: var(--ink);
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--fs-tiny);
+}
+.control-text { resize: vertical; min-height: 76px; padding: 9px 10px; line-height: 1.35; }
+.control-select { height: 32px; padding: 0 8px; font-family: var(--font-mono); }
+.control-pair { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: var(--sp-2); align-items: center; }
+.control-pair label { color: var(--ink-3); font-size: var(--fs-tiny); text-transform: uppercase; letter-spacing: 0.04em; }
+.control-pair button { grid-column: 2; justify-self: start; }
+
 .lifeline { display: flex; flex-direction: column; }
 .life-row { display: flex; align-items: center; gap: var(--sp-3); height: 28px; opacity: 0.4; }
 .life-row.done { opacity: 1; }

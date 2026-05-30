@@ -71,35 +71,48 @@
     for (let i = Math.max(0, head - 5); i <= Math.min(ops.length - 1, head + 2); i++) traceWindow.push({ i, op: ops[i] });
 
     if (node.outcome === 'reject') {
-      return React.createElement('div', { className: 'run-empty' },
-        React.createElement('div', { className: 'run-empty-icon' }, '✕'),
-        React.createElement('div', null, 'No valid run — candidate was rejected'),
-        React.createElement('div', { className: 'mono run-empty-sub' }, 'semantic: ' + node.semantic));
+      return (
+        <div className="run-empty">
+          <div className="run-empty-icon">✕</div>
+          <div>No valid run — candidate was rejected</div>
+          <div className="mono run-empty-sub">{'semantic: ' + node.semantic}</div>
+        </div>
+      );
     }
 
-    return React.createElement('div', { className: 'run' },
-      React.createElement('div', { className: 'run-grid', ref: (el) => {
-        if (el && el.childElementCount === 0) {
-          for (let i = 0; i < 256; i++) { const d = document.createElement('div'); d.className = 'rc'; el.appendChild(d); cellRefs.current[i] = d; }
-        }
-      } }),
-      React.createElement('div', { className: 'run-controls' },
-        React.createElement('button', { className: 'btn icon', onClick: () => setPlaying((p) => !p) }, playing ? '❚❚' : '▶'),
-        React.createElement('div', { className: 'run-bar', onClick: (e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          setHead(Math.round(((e.clientX - r.left) / r.width) * (ops.length - 1)));
-          setPlaying(false);
-        } },
-          React.createElement('div', { className: 'run-bar-fill', ref: barRef })),
-        React.createElement('span', { className: 'run-count' }, head + '/' + (ops.length - 1))),
-      React.createElement('div', { className: 'eyebrow', style: { marginTop: 4 } }, 'op trace · ' + Math.round((head / (ops.length - 1)) * 100) + '% filled'),
-      React.createElement('div', { className: 'run-trace', ref: traceRef },
-        traceWindow.map(({ i, op }) => React.createElement('div', {
-          key: i, className: 'trace-line' + (i === head ? ' on' : ''),
-          style: { opacity: i === head ? 1 : 0.4 } },
-          React.createElement('span', { className: 'trace-k' }, 'op' + String(i).padStart(3, '0')),
-          React.createElement('span', { className: 'trace-t t-' + op.type }, op.type),
-          React.createElement('span', { className: 'trace-lbl' }, op.label)))));
+    const onGridRef = (el) => {
+      if (el && el.childElementCount === 0) {
+        for (let i = 0; i < 256; i++) { const dd = document.createElement('div'); dd.className = 'rc'; el.appendChild(dd); cellRefs.current[i] = dd; }
+      }
+    };
+    const onBarClick = (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      setHead(Math.round(((e.clientX - r.left) / r.width) * (ops.length - 1)));
+      setPlaying(false);
+    };
+
+    return (
+      <div className="run">
+        <div className="run-grid" ref={onGridRef} />
+        <div className="run-controls">
+          <button className="btn icon" onClick={() => setPlaying((p) => !p)}>{playing ? '❚❚' : '▶'}</button>
+          <div className="run-bar" onClick={onBarClick}>
+            <div className="run-bar-fill" ref={barRef} />
+          </div>
+          <span className="run-count">{head + '/' + (ops.length - 1)}</span>
+        </div>
+        <div className="eyebrow" style={{ marginTop: 4 }}>{'op trace · ' + Math.round((head / (ops.length - 1)) * 100) + '% filled'}</div>
+        <div className="run-trace" ref={traceRef}>
+          {traceWindow.map(({ i, op }) => (
+            <div key={i} className={'trace-line' + (i === head ? ' on' : '')} style={{ opacity: i === head ? 1 : 0.4 }}>
+              <span className="trace-k">{'op' + String(i).padStart(3, '0')}</span>
+              <span className={'trace-t t-' + op.type}>{op.type}</span>
+              <span className="trace-lbl">{op.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   window.RunPlayback = RunPlayback;

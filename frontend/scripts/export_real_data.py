@@ -158,6 +158,10 @@ def build_payload(journal, db_filename=None):
         })
 
     hyp_rows = {r["id"]: dict(r) for r in con.execute("select * from hypotheses")}
+    halted_branches = {
+        r["branch_id"]: dict(r)
+        for r in con.execute("select * from branch_controls where status = 'halted'")
+    } if con.execute("select name from sqlite_master where type = 'table' and name = 'branch_controls'").fetchone() else {}
     sub_rows = [dict(r) for r in con.execute("select * from submissions order by created_at, id")]
     ver_by_sub = {r["submission_id"]: dict(r) for r in con.execute("select * from verifications")}
     subs_by_hyp = {}
@@ -166,7 +170,7 @@ def build_payload(journal, db_filename=None):
     agent_role_by_id = {a["id"]: a["role"] for a in agents}
     hypothesis_items = []
 
-    tree_excluded_roles = {"meta_agent", "insight_generator"}
+    tree_excluded_roles = set()
     excluded_tree_items = 0
     transfer_edges = []
     first_verified = con.execute(
@@ -198,9 +202,6 @@ def build_payload(journal, db_filename=None):
         context = load_json(hyp["context_json"], {})
         evolution = context.get("evolution") if isinstance(context.get("evolution"), dict) else {}
         summary = load_json(sub["candidate_summary_json"], {}) if sub else {}
-        artifact = load_json(sub["artifact_json"], {}) if sub else {}
-        if not isinstance(artifact, dict):
-            artifact = {}
         best = summary.get("best") if isinstance(summary, dict) else {}
         if not isinstance(best, dict):
             best = {}
@@ -237,6 +238,7 @@ def build_payload(journal, db_filename=None):
             "hasSubmission": sub is not None,
             "hasVerification": ver is not None,
             "inTree": ver is not None and proposer_role not in tree_excluded_roles,
+            "halted": hyp_id in halted_branches,
             "isTransfer": is_transfer,
             "evolution": evolution,
             "rationale": hyp["rationale"],
@@ -291,6 +293,7 @@ def build_payload(journal, db_filename=None):
             "rationale": hyp["rationale"],
             "expectedMovement": hyp["expected_movement"],
             "isTransfer": is_transfer,
+            "halted": hyp_id in halted_branches,
             "evolution": evolution,
         })
 
@@ -363,6 +366,7 @@ def build_payload(journal, db_filename=None):
             "tNow": t_now,
             "totalNodes": len(nodes),
             "excludedTreeItems": excluded_tree_items,
+            "haltedBranches": len(halted_branches),
             "problem": "16x16 general matmul",
             "metric": "energy",
             "source": str(journal),

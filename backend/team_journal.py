@@ -145,12 +145,33 @@ CREATE TABLE IF NOT EXISTS promoted_tools (
     updated_at      TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS branch_controls (
+    branch_id       TEXT PRIMARY KEY REFERENCES hypotheses(id),
+    status          TEXT NOT NULL DEFAULT 'halted'
+                    CHECK (status IN ('halted', 'active')),
+    note            TEXT,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS control_actions (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind                 TEXT NOT NULL,
+    source_hypothesis_id TEXT REFERENCES hypotheses(id),
+    target_hypothesis_id TEXT REFERENCES hypotheses(id),
+    body                 TEXT,
+    payload_json         TEXT NOT NULL DEFAULT '{}',
+    created_at           TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_agents_role_status ON agents(role, status);
 CREATE INDEX IF NOT EXISTS idx_hyp_status_priority ON hypotheses(status, priority DESC, created_at);
 CREATE INDEX IF NOT EXISTS idx_sub_status ON submissions(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_ver_submission ON verifications(submission_id);
 CREATE INDEX IF NOT EXISTS idx_tools_status ON promoted_tools(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_tools_signature ON promoted_tools(signature, status);
+CREATE INDEX IF NOT EXISTS idx_branch_controls_status ON branch_controls(status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_control_actions_created ON control_actions(created_at);
 """
 
 

@@ -1,0 +1,17 @@
+{
+  "name": "openai-hide-and-seek-playable",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "three": "^0.181.2",
+    "vite": "^8.0.14"
+  },
+  "devDependencies": {
+    "playwright": "^1.57.0"
+  }
+}

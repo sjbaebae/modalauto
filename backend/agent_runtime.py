@@ -23,8 +23,8 @@ from autoresearch.backend import experiment_config
 from autoresearch.backend import message_board
 from autoresearch.backend import research_memory
 from autoresearch.backend import team_journal
-from autoresearch.experiments.matmul_reference.matmul import matmul
-from autoresearch.experiments.matmul_reference.loop import buckets, verify_general
+from autoresearch.experiments.matmul.matmul import matmul
+from autoresearch.experiments.matmul.loop import buckets, verify_general
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -80,7 +80,7 @@ def fresh_id(prefix: str) -> str:
 def runner_command(args: argparse.Namespace, run_id: str, hyp_path: Path) -> list[str]:
     workflow = experiment_config.load_workflow(args.workflow_path)
     runner = workflow.get("runner", {}) if isinstance(workflow, dict) else {}
-    command = runner.get("command") or "experiments/matmul_reference/loop.py"
+    command = runner.get("command") or "experiments/matmul/loop.py"
     command_path = Path(command)
     if not command_path.is_absolute():
         command_path = REPO_ROOT / "autoresearch" / command_path
@@ -283,6 +283,40 @@ def frontier_parent_id(best: dict | None) -> str | None:
     return str(value) if value else None
 
 
+def branch_is_halted(db, hyp_id: str | None) -> bool:
+    if not hyp_id:
+        return False
+    has_table = db.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'branch_controls'"
+    ).fetchone()
+    if has_table is None:
+        return False
+    seen: set[str] = set()
+    current = hyp_id
+    while current and current not in seen:
+        seen.add(current)
+        row = db.execute(
+            """
+            SELECT h.parent_hypothesis_id, bc.status
+            FROM hypotheses h
+            LEFT JOIN branch_controls bc ON bc.branch_id = h.id AND bc.status = 'halted'
+            WHERE h.id = ?
+            """,
+            (current,),
+        ).fetchone()
+        if row is None:
+            return False
+        if row["status"] == "halted":
+            return True
+        current = row["parent_hypothesis_id"]
+    return False
+
+
+def usable_frontier_parent(db, best: dict | None) -> str | None:
+    parent = frontier_parent_id(best)
+    return None if branch_is_halted(db, parent) else parent
+
+
 def parse_json_object(raw: str | None) -> dict:
     if not raw:
         return {}
@@ -387,7 +421,7 @@ def propose_hypothesis(args: argparse.Namespace, radical: bool = False) -> dict[
     db = connect_team(args)
     existing = db.execute("SELECT COUNT(*) AS n FROM hypotheses").fetchone()["n"]
     best = team_journal.best_frontier(db)
-    parent_hypothesis_id = frontier_parent_id(best) if existing else None
+    parent_hypothesis_id = usable_frontier_parent(db, best) if existing else None
     if radical and args.allow_seeded_strategies:
         templates = [
             (
@@ -524,7 +558,7 @@ def run_insight_generator_step(args: argparse.Namespace) -> None:
     heartbeat(args, "working")
     db = connect_team(args)
     best = team_journal.best_frontier(db)
-    parent_hypothesis_id = frontier_parent_id(best)
+    parent_hypothesis_id = usable_frontier_parent(db, best)
     recent = db.execute(
         """
         SELECT h.title, h.context_json, s.candidate_summary_json
@@ -886,7 +920,7 @@ def run_meta_agent_step(args: argparse.Namespace) -> None:
     heartbeat(args, "working")
     db = connect_team(args)
     best = team_journal.best_frontier(db)
-    parent_hypothesis_id = frontier_parent_id(best)
+    parent_hypothesis_id = usable_frontier_parent(db, best)
     recent = db.execute(
         """
         SELECT h.title, h.context_json, s.status AS submission_status,

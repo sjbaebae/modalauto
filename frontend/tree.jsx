@@ -2,7 +2,8 @@
    Color & size encode fitness. Pan (drag) + zoom (wheel). Click a node to inspect. */
 (function () {
   const { useState, useRef, useEffect, useMemo, useCallback } = React;
-  const E = window.APP;
+  let E = window.APP;
+  window.addEventListener('autoresearch-world', () => { E = window.APP; });
 
   const VW = 2200, VH = 860, PAD = 70;
   const SMIN = E.meta.best == null ? E.meta.baseline : E.meta.best, SMAX = E.meta.baseline;
@@ -134,6 +135,7 @@
 
   function nodeVisual(n, st) {
     // returns {r, fill, stroke, op}
+    if (n.halted) return { r: 6, fill: 'var(--surface-0)', stroke: 'var(--bad)', op: 1 };
     if (st === 'verified') {
       const r = 4.5 + (n.fit || 0) * 1.35;
       return { r, fill: fitVar(n.fit), stroke: 'none', op: 1, glow: n.isFrontier };
@@ -247,58 +249,58 @@
     }
 
     return (
-      React.createElement('div', { className: 'tree-host', ref: wrapRef,
-        onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerLeave: onUp,
-        style: { cursor: drag.current ? 'grabbing' : 'grab' } },
+      <div className="tree-host" ref={wrapRef}
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}
+        style={{ cursor: drag.current ? 'grabbing' : 'grab' }}>
 
-        React.createElement('svg', { width: '100%', height: '100%', style: { opacity: view.ready ? 1 : 0 } },
-          React.createElement('g', { transform: `translate(${view.tx} ${view.ty}) scale(${view.k})` },
-            // edges
-            edges.map(([a, b, n]) => {
+        <svg width="100%" height="100%" style={{ opacity: view.ready ? 1 : 0 }}>
+          <g transform={`translate(${view.tx} ${view.ty}) scale(${view.k})`}>
+            {/* edges */}
+            {edges.map(([a, b, n]) => {
               const st = E.fns.statusAt(n, T);
               const onLin = lineage.has(a) && lineage.has(b);
               const col = n.score != null ? fitVar(n.fit) : (st === 'rejected' ? 'var(--bad)' : 'var(--line-strong)');
-              return React.createElement('path', {
-                key: 'e' + b, d: edgePath(a, b), fill: 'none',
-                stroke: onLin ? 'var(--accent)' : col,
-                strokeWidth: onLin ? 2.4 : (edgeCount > 250 ? 0.75 : 1.25),
-                opacity: onLin ? 0.95 : (edgeCount > 250 ? (n.score != null ? 0.18 : 0.12) : (n.score != null ? 0.42 : 0.3)),
-                style: { transition: 'opacity .4s, stroke .2s' },
-              });
-            }),
-            transferEdges.map(([a, b, edge]) => {
+              return <path
+                key={'e' + b} d={edgePath(a, b)} fill="none"
+                stroke={onLin ? 'var(--accent)' : col}
+                strokeWidth={onLin ? 2.4 : (edgeCount > 250 ? 0.75 : 1.25)}
+                opacity={onLin ? 0.95 : (edgeCount > 250 ? (n.score != null ? 0.18 : 0.12) : (n.score != null ? 0.42 : 0.3))}
+                style={{ transition: 'opacity .4s, stroke .2s' }}
+              />;
+            })}
+            {transferEdges.map(([a, b, edge]) => {
               if (!P[a] || !P[b]) return null;
               const mid = { x: (P[a].x + P[b].x) / 2, y: (P[a].y + P[b].y) / 2 };
               const path = edgePath(a, b);
-              return React.createElement('g', { key: 'g' + edge.id },
-                React.createElement('path', {
-                  d: path,
-                  fill: 'none',
-                  stroke: 'var(--accent)',
-                  strokeWidth: 1.7,
-                  strokeDasharray: '5 5',
-                  opacity: 0.72,
-                  vectorEffect: 'non-scaling-stroke',
-                  pointerEvents: 'none',
-                }),
-                React.createElement('path', {
-                  d: path,
-                  fill: 'none',
-                  stroke: 'transparent',
-                  strokeWidth: 12,
-                  vectorEffect: 'non-scaling-stroke',
-                  style: { cursor: 'help' },
-                  onPointerEnter: () => setHover({ transfer: edge, p: mid }),
-                  onPointerLeave: () => setHover(null),
-                })
-              );
-            }),
-            timeTicks.map((tick, i) => React.createElement('g', { key: 'tick' + i },
-              React.createElement('line', { x1: tick.x, y1: PAD - 18, x2: tick.x, y2: VH - PAD + 18, stroke: 'var(--line-soft)', strokeWidth: 1, opacity: 0.65 }),
-              React.createElement('text', { x: tick.x, y: VH - PAD + 36, textAnchor: 'middle', className: 'time-tick' }, mmss(tick.t))
-            )),
-            // nodes
-            vis.map((n) => {
+              return <g key={'g' + edge.id}>
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeWidth={1.7}
+                  strokeDasharray="5 5"
+                  opacity={0.72}
+                  vectorEffect="non-scaling-stroke"
+                  pointerEvents="none"
+                />
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth={12}
+                  vectorEffect="non-scaling-stroke"
+                  style={{ cursor: 'help' }}
+                  onPointerEnter={() => setHover({ transfer: edge, p: mid })}
+                  onPointerLeave={() => setHover(null)}
+                />
+              </g>;
+            })}
+            {timeTicks.map((tick, i) => <g key={'tick' + i}>
+              <line x1={tick.x} y1={PAD - 18} x2={tick.x} y2={VH - PAD + 18} stroke="var(--line-soft)" strokeWidth={1} opacity={0.65} />
+              <text x={tick.x} y={VH - PAD + 36} textAnchor="middle" className="time-tick">{mmss(tick.t)}</text>
+            </g>)}
+            {/* nodes */}
+            {vis.map((n) => {
               const st = E.fns.statusAt(n, T);
               const v = nodeVisual(n, st);
               if (!v.r) return null;
@@ -306,81 +308,82 @@
               const p = P[n.id];
               const isSel = n.id === selected;
               const dim = dimOffLineage && selected && !lineage.has(n.id);
-              return React.createElement('g', {
-                key: n.id, transform: `translate(${p.x} ${p.y})`,
-                style: { cursor: 'pointer', transition: 'opacity .4s' }, opacity: dim ? 0.28 : v.op,
-                onClick: (e) => { e.stopPropagation(); if (!drag.current || !drag.current.moved) onSelect(n.id); },
-                onPointerEnter: () => setHover({ n, st, p }), onPointerLeave: () => setHover(null),
-              },
-                v.glow ? React.createElement('circle', { r: r + 6 / Math.sqrt(Math.max(1, view.k)), fill: 'var(--accent-soft)' }) : null,
-                React.createElement('circle', {
-                  r, fill: v.fill, stroke: v.glow ? 'var(--accent)' : v.stroke,
-                  strokeWidth: v.glow ? 2 : (v.stroke !== 'none' ? 1.6 : 0),
-                  vectorEffect: 'non-scaling-stroke',
-                  style: v.working ? { animation: 'nodepulse 1.6s ease-in-out infinite' } : null,
-                }),
-                isSel ? React.createElement('circle', { r: r + 5 / Math.sqrt(Math.max(1, view.k)), fill: 'none', stroke: 'var(--accent)', strokeWidth: 2, vectorEffect: 'non-scaling-stroke' }) : null,
-                // score label on bigger verified nodes
-                (st === 'verified' && scoreLabels && labelIds.has(n.id) && view.k > 0.7)
-                  ? React.createElement('text', { y: -r - 8 / view.k, textAnchor: 'middle', className: 'node-label', style: { fontSize: (11 / view.k) + 'px' } },
-                      (n.score / 1000).toFixed(1) + 'k')
-                  : null,
-              );
-            }),
-          ),
-        ),
+              return <g
+                key={n.id} transform={`translate(${p.x} ${p.y})`}
+                style={{ cursor: 'pointer', transition: 'opacity .4s' }} opacity={dim ? 0.28 : v.op}
+                onClick={(e) => { e.stopPropagation(); if (!drag.current || !drag.current.moved) onSelect(n.id, { shift: e.shiftKey }); }}
+                onPointerEnter={() => setHover({ n, st, p })} onPointerLeave={() => setHover(null)}
+              >
+                {v.glow ? <circle r={r + 6 / Math.sqrt(Math.max(1, view.k))} fill="var(--accent-soft)" /> : null}
+                <circle
+                  r={r} fill={v.fill} stroke={v.glow ? 'var(--accent)' : v.stroke}
+                  strokeWidth={v.glow ? 2 : (v.stroke !== 'none' ? 1.6 : 0)}
+                  vectorEffect="non-scaling-stroke"
+                  style={v.working ? { animation: 'nodepulse 1.6s ease-in-out infinite' } : null}
+                />
+                {isSel ? <circle r={r + 5 / Math.sqrt(Math.max(1, view.k))} fill="none" stroke="var(--accent)" strokeWidth={2} vectorEffect="non-scaling-stroke" /> : null}
+                {/* score label on bigger verified nodes */}
+                {(st === 'verified' && scoreLabels && labelIds.has(n.id) && view.k > 0.7)
+                  ? <text y={-r - 8 / view.k} textAnchor="middle" className="node-label" style={{ fontSize: (11 / view.k) + 'px' }}>
+                      {(n.score / 1000).toFixed(1) + 'k'}</text>
+                  : null}
+              </g>;
+            })}
+          </g>
+        </svg>
 
-        // hover tooltip (screen-space)
-        hover && hover.transfer ? React.createElement('div', {
-          className: 'tree-tip transfer-tip',
-          style: { left: hover.p.x * view.k + view.tx + 14, top: hover.p.y * view.k + view.ty - 8 },
-        },
-          React.createElement('div', { className: 'tt-head' },
-            React.createElement('span', { className: 'mono tt-id' }, 'gene transfer'),
-            React.createElement('span', { className: 'pill', 'data-status': 'working' },
-              React.createElement('span', { className: 'dot' }), 'graft')),
-          React.createElement('div', { className: 'tt-title' },
-            (hover.transfer.donorFamily || 'branch') + ' → ' + (hover.transfer.recipientFamily || 'branch')),
-          React.createElement('div', { className: 'tt-score mono' }, 'donor ' + hover.transfer.donor + ' → ' + hover.transfer.to),
-          hover.transfer.transferred
-            ? React.createElement('div', { className: 'tt-meta mono' },
-                [
+        {/* hover tooltip (screen-space) */}
+        {hover && hover.transfer ? <div
+          className="tree-tip transfer-tip"
+          style={{ left: hover.p.x * view.k + view.tx + 14, top: hover.p.y * view.k + view.ty - 8 }}
+        >
+          <div className="tt-head">
+            <span className="mono tt-id">{'gene transfer'}</span>
+            <span className="pill" data-status="working">
+              <span className="dot" />{'graft'}</span></div>
+          <div className="tt-title">
+            {(hover.transfer.donorFamily || 'branch') + ' → ' + (hover.transfer.recipientFamily || 'branch')}</div>
+          <div className="tt-score mono">{'donor ' + hover.transfer.donor + ' → ' + hover.transfer.to}</div>
+          {hover.transfer.transferred
+            ? <div className="tt-meta mono">
+                {[
                   hover.transfer.transferred.operator,
                   hover.transfer.transferred.reuse_goal,
                   hover.transfer.transferred.tile ? JSON.stringify(hover.transfer.transferred.tile) : null,
-                ].filter(Boolean).join(' · ') || 'structural transfer')
-            : null
-        ) : hover ? React.createElement('div', {
-          className: 'tree-tip',
-          style: { left: hover.p.x * view.k + view.tx + 14, top: hover.p.y * view.k + view.ty - 8 },
-        },
-          React.createElement('div', { className: 'tt-head' },
-            React.createElement('span', { className: 'mono tt-id' }, hover.n.id),
-            React.createElement('span', { className: `pill`, 'data-status': pillStatus(hover.st) },
-              React.createElement('span', { className: 'dot' }), hover.st)),
-          React.createElement('div', { className: 'tt-title' }, hover.n.title),
-          hover.n.score != null && hover.st === 'verified'
-            ? React.createElement('div', { className: 'tt-score mono' }, hover.n.score.toLocaleString() + ' energy')
-            : React.createElement('div', { className: 'tt-score mono', style: { color: 'var(--ink-3)' } },
-                hover.st === 'rejected' ? 'rejected · ' + (hover.n.semantic) : 'in progress…'))
-          : null,
+                ].filter(Boolean).join(' · ') || 'structural transfer'}</div>
+            : null}
+        </div> : hover ? <div
+          className="tree-tip"
+          style={{ left: hover.p.x * view.k + view.tx + 14, top: hover.p.y * view.k + view.ty - 8 }}
+        >
+          <div className="tt-head">
+            <span className="mono tt-id">{hover.n.id}</span>
+            <span className={`pill`} data-status={pillStatus(hover.st)}>
+              <span className="dot" />{hover.st}</span></div>
+          <div className="tt-title">{hover.n.title}</div>
+          {hover.n.score != null && hover.st === 'verified'
+            ? <div className="tt-score mono">{hover.n.score.toLocaleString() + ' energy'}</div>
+            : <div className="tt-score mono" style={{ color: 'var(--ink-3)' }}>
+                {hover.st === 'rejected' ? 'rejected · ' + (hover.n.semantic) : 'in progress…'}</div>}
+        </div>
+          : null}
 
-        // axis chrome (static)
-        React.createElement('div', { className: 'axis axis-x' }, '← earlier', React.createElement('span', null, 'time →')),
-        React.createElement('div', { className: 'axis axis-y-top' }, useBranchLaneLayout ? 'branch lanes' : useLaneLayout ? 'orchestration lanes' : 'better ↑'),
-        React.createElement('div', { className: 'axis axis-y-bot' }, useBranchLaneLayout ? 'score shown by color' : useLaneLayout ? 'score nudges within lanes' : 'worse ↓'),
-        // legend + controls
-        React.createElement('div', { className: 'tree-legend' },
-          React.createElement('span', { className: 'eyebrow' }, 'fitness'),
-          React.createElement('div', { className: 'legend-ramp' },
-            [0,1,2,3,4,5,6].map((f) => React.createElement('span', { key: f, style: { background: fitVar(f) } }))),
-          React.createElement('span', { className: 'mono legend-cap' }, (SMAX/1000).toFixed(0) + 'k'),
-          React.createElement('span', { className: 'mono legend-cap', style:{color:'var(--fit-6)'} }, (SMIN/1000).toFixed(1) + 'k')),
-        React.createElement('div', { className: 'tree-ctrls' },
-          React.createElement('button', { className: 'btn icon', title: 'fit', onClick: fit }, '⤢'),
-          React.createElement('button', { className: 'btn icon', title: 'zoom in', onClick: () => setView(v=>({...v,k:Math.min(9,v.k*1.2)})) }, '+'),
-          React.createElement('button', { className: 'btn icon', title: 'zoom out', onClick: () => setView(v=>({...v,k:Math.max(0.35,v.k/1.2)})) }, '−')),
-      )
+        {/* axis chrome (static) */}
+        <div className="axis axis-x">{'← earlier'}<span>{'time →'}</span></div>
+        <div className="axis axis-y-top">{useBranchLaneLayout ? 'branch lanes' : useLaneLayout ? 'orchestration lanes' : 'better ↑'}</div>
+        <div className="axis axis-y-bot">{useBranchLaneLayout ? 'score shown by color' : useLaneLayout ? 'score nudges within lanes' : 'worse ↓'}</div>
+        {/* legend + controls */}
+        <div className="tree-legend">
+          <span className="eyebrow">{'fitness'}</span>
+          <div className="legend-ramp">
+            {[0,1,2,3,4,5,6].map((f) => <span key={f} style={{ background: fitVar(f) }} />)}</div>
+          <span className="mono legend-cap">{(SMAX/1000).toFixed(0) + 'k'}</span>
+          <span className="mono legend-cap" style={{color:'var(--fit-6)'}}>{(SMIN/1000).toFixed(1) + 'k'}</span></div>
+        <div className="tree-ctrls">
+          <button className="btn icon" title="fit" onClick={fit}>{'⤢'}</button>
+          <button className="btn icon" title="zoom in" onClick={() => setView(v=>({...v,k:Math.min(9,v.k*1.2)}))}>{'+'}</button>
+          <button className="btn icon" title="zoom out" onClick={() => setView(v=>({...v,k:Math.max(0.35,v.k/1.2)}))}>{'−'}</button></div>
+      </div>
     );
   }
 

@@ -23,16 +23,20 @@
   const mmss = (t) => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.round(t % 60)).padStart(2, '0');
 
   function Logo() {
-    return React.createElement('div', { className: 'logo' },
-      React.createElement('svg', { viewBox: '0 0 34 34', width: 26, height: 26, fill: 'none' },
-        React.createElement('circle', { cx: 6, cy: 17, r: 3, fill: 'var(--fit-1)' }),
-        React.createElement('circle', { cx: 17, cy: 8, r: 2.6, fill: 'var(--fit-3)' }),
-        React.createElement('circle', { cx: 17, cy: 26, r: 2.6, fill: 'var(--fit-2)' }),
-        React.createElement('circle', { cx: 28, cy: 6, r: 3.4, fill: 'var(--accent)' }),
-        React.createElement('circle', { cx: 28, cy: 20, r: 2.4, fill: 'var(--fit-4)' }),
-        React.createElement('circle', { cx: 28, cy: 28, r: 2.2, fill: 'var(--fit-3)' }),
-        React.createElement('path', { d: 'M9 17 L14.6 9 M9 17 L14.6 25 M19.4 8 L25 6.5 M19.4 8 L26 19 M19.4 26 L26 27.5', stroke: 'var(--line-strong)', strokeWidth: 1.2 })),
-      React.createElement('span', { className: 'logo-name' }, 'Autoresearch'));
+    return (
+      <div className="logo">
+        <svg viewBox="0 0 34 34" width={26} height={26} fill="none">
+          <circle cx={6} cy={17} r={3} fill="var(--fit-1)" />
+          <circle cx={17} cy={8} r={2.6} fill="var(--fit-3)" />
+          <circle cx={17} cy={26} r={2.6} fill="var(--fit-2)" />
+          <circle cx={28} cy={6} r={3.4} fill="var(--accent)" />
+          <circle cx={28} cy={20} r={2.4} fill="var(--fit-4)" />
+          <circle cx={28} cy={28} r={2.2} fill="var(--fit-3)" />
+          <path d="M9 17 L14.6 9 M9 17 L14.6 25 M19.4 8 L25 6.5 M19.4 8 L26 19 M19.4 26 L26 27.5" stroke="var(--line-strong)" strokeWidth={1.2} />
+        </svg>
+        <span className="logo-name">Autoresearch</span>
+      </div>
+    );
   }
 
   function StatTiles({ T }) {
@@ -41,13 +45,16 @@
     const act = E.fns.agentActivity(T);
     const liveAgents = E.agents.filter((a) => act[a.id] && act[a.id].alive).length;
     const working = E.agents.filter((a) => act[a.id] && act[a.id].alive && act[a.id].status === 'working').length;
-    return React.createElement('div', { className: 'stat-row' },
-      React.createElement('div', { className: 'stat' }, React.createElement('span', { className: 'k' }, 'Best energy'),
-        React.createElement('span', { className: 'v', style: { color: 'var(--fit-6)' } }, fmt(best))),
-      React.createElement('div', { className: 'stat' }, React.createElement('span', { className: 'k' }, 'Experiments'),
-        React.createElement('span', { className: 'v' }, born)),
-      React.createElement('div', { className: 'stat' }, React.createElement('span', { className: 'k' }, 'Live agents'),
-        React.createElement('span', { className: 'v' }, liveAgents, React.createElement('span', { className: 'stat-frac mono' }, working + ' busy'))));
+    return (
+      <div className="stat-row">
+        <div className="stat"><span className="k">Best energy</span>
+          <span className="v" style={{ color: 'var(--fit-6)' }}>{fmt(best)}</span></div>
+        <div className="stat"><span className="k">Experiments</span>
+          <span className="v">{born}</span></div>
+        <div className="stat"><span className="k">Live agents</span>
+          <span className="v">{liveAgents}<span className="stat-frac mono">{working + ' busy'}</span></span></div>
+      </div>
+    );
   }
 
   function ChangelogBadge() {
@@ -65,13 +72,16 @@
       load();
       const id = setInterval(load, 3000);
       return () => { stopped = true; clearInterval(id); };
-    }, []);
+    }, [E.series, E.meta.baseline, E.meta.best, E.meta.tMax]);
     if (!info || !info.frames) return null;
     const last = info.frames[info.frames.length - 1];
     const counts = last && last.counts ? last.counts : {};
-    return React.createElement('div', { className: 'run-badge', title: info.changelog || info.journal || 'live database' },
-      React.createElement('span', { className: 'live-tag' }, '● LIVE DB'),
-      React.createElement('span', { className: 'mono' }, (counts.hypotheses || E.meta.totalNodes) + ' hyp'));
+    return (
+      <div className="run-badge" title={info.changelog || info.journal || 'live database'}>
+        <span className="live-tag">● LIVE DB</span>
+        <span className="mono">{(counts.hypotheses || E.meta.totalNodes) + ' hyp'}</span>
+      </div>
+    );
   }
 
   function Scrubber({ T, setT, playing, setPlaying, speed, setSpeed }) {
@@ -80,16 +90,21 @@
     const empty = E.meta.totalNodes === 0;
     const live = T >= E.meta.tNow - 1;
     if (empty) {
-      return React.createElement('div', { className: 'scrubber scrubber-empty' },
-        React.createElement('button', { className: 'btn primary play-btn', disabled: true },
-          '●', React.createElement('span', null, 'Live')),
-        React.createElement('div', { className: 'scrub-track-wrap' },
-          React.createElement('div', { className: 'scrub-time mono' },
-            React.createElement('span', null, '00:00'),
-            React.createElement('span', { className: 'live-tag' }, '● LIVE'),
-            React.createElement('span', { className: 'mono scrub-born' }, '0 experiments')),
-          React.createElement('div', { className: 'scrub-empty-track' }, 'waiting for first run')),
-        React.createElement('button', { className: 'btn jump-btn', disabled: true }, 'Jump to now'));
+      return (
+        <div className="scrubber scrubber-empty">
+          <button className="btn primary play-btn" disabled={true}>
+            ●<span>Live</span></button>
+          <div className="scrub-track-wrap">
+            <div className="scrub-time mono">
+              <span>00:00</span>
+              <span className="live-tag">● LIVE</span>
+              <span className="mono scrub-born">0 experiments</span>
+            </div>
+            <div className="scrub-empty-track">waiting for first run</div>
+          </div>
+          <button className="btn jump-btn" disabled={true}>Jump to now</button>
+        </div>
+      );
     }
 
     const sparkPath = useMemo(() => {
@@ -119,32 +134,107 @@
     const playLabel = playing ? 'Pause' : live ? 'Live' : 'Replay';
     const playIcon = playing ? '❚❚' : live ? '●' : '▶';
 
-    return React.createElement('div', { className: 'scrubber' },
-      React.createElement('button', { className: 'btn primary play-btn', onClick: () => setPlaying((p) => !p) },
-        playIcon, React.createElement('span', null, playLabel)),
-      React.createElement('div', { className: 'scrub-track-wrap' },
-        React.createElement('div', { className: 'scrub-time mono' },
-          React.createElement('span', null, mmss(T)),
-          live ? React.createElement('span', { className: 'live-tag' }, '● LIVE') : React.createElement('span', { className: 'mono scrub-of' }, 'of ' + mmss(E.meta.tMax)),
-          React.createElement('span', { className: 'mono scrub-born' }, bornNow + ' experiments')),
-        React.createElement('div', { className: 'scrub-track', ref: trackRef, onPointerDown: down },
-          React.createElement('svg', { className: 'spark', viewBox: '0 0 100 100', preserveAspectRatio: 'none' },
-            React.createElement('path', { d: sparkFill, fill: 'var(--accent-soft)' }),
-            React.createElement('path', { d: sparkPath, fill: 'none', stroke: 'var(--accent)', strokeWidth: 1.2, vectorEffect: 'non-scaling-stroke' })),
-          React.createElement('div', { className: 'scrub-done', style: { width: pct + '%' } }),
-          React.createElement('div', { className: 'scrub-head', style: { left: pct + '%' } }))),
-      React.createElement('div', { className: 'scrub-right' },
-        React.createElement('div', { className: 'speed-seg' },
-          [1, 2, 4].map((s) => React.createElement('button', { key: s, className: 'speed-btn' + (speed === s ? ' on' : ''), onClick: () => setSpeed(s) }, s + '×'))),
-        React.createElement('button', { className: 'btn jump-btn' + (live ? ' on' : ''), onClick: () => { setT(E.meta.tNow); setPlaying(false); } }, 'Jump to now')));
+    return (
+      <div className="scrubber">
+        <button className="btn primary play-btn" onClick={() => setPlaying((p) => !p)}>
+          {playIcon}<span>{playLabel}</span></button>
+        <div className="scrub-track-wrap">
+          <div className="scrub-time mono">
+            <span>{mmss(T)}</span>
+            {live ? <span className="live-tag">● LIVE</span> : <span className="mono scrub-of">{'of ' + mmss(E.meta.tMax)}</span>}
+            <span className="mono scrub-born">{bornNow + ' experiments'}</span>
+          </div>
+          <div className="scrub-track" ref={trackRef} onPointerDown={down}>
+            <svg className="spark" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <path d={sparkFill} fill="var(--accent-soft)" />
+              <path d={sparkPath} fill="none" stroke="var(--accent)" strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
+            </svg>
+            <div className="scrub-done" style={{ width: pct + '%' }} />
+            <div className="scrub-head" style={{ left: pct + '%' }} />
+          </div>
+        </div>
+        <div className="scrub-right">
+          <div className="speed-seg">
+            {[1, 2, 4].map((s) => <button key={s} className={'speed-btn' + (speed === s ? ' on' : '')} onClick={() => setSpeed(s)}>{s + '×'}</button>)}
+          </div>
+          <button className={'btn jump-btn' + (live ? ' on' : '')} onClick={() => { setT(E.meta.tNow); setPlaying(false); }}>Jump to now</button>
+        </div>
+      </div>
+    );
   }
 
   function App() {
+    const [world, setWorld] = useState(window.APP);
+    const worldRef = useRef(world);
+    E = world;
+    const EvoTree = window.EvoTree;
+    const InspectorPanel = window.InspectorPanel;
+    const TeamPanel = window.TeamPanel;
+    const HypothesesPanel = window.HypothesesPanel;
+    const ActivityPanel = window.ActivityPanel;
+    const TweaksPanel = window.TweaksPanel;
+    const TweakSection = window.TweakSection;
+    const TweakRadio = window.TweakRadio;
+    const TweakColor = window.TweakColor;
+    const TweakToggle = window.TweakToggle;
     const [t, setTweak] = window.useTweaks(TWEAK_DEFAULTS);
     const [T, setT] = useState(E.meta.tNow);
     const [playing, setPlaying] = useState(false);
     const [speed, setSpeed] = useState(t.speed || 1);
     const [selected, setSelected] = useState(null);
+    const [branchSelection, setBranchSelection] = useState([]);
+
+    useEffect(() => {
+      worldRef.current = world;
+      E = world;
+    }, [world]);
+
+    useEffect(() => {
+      window.__AUTORESEARCH_APPLY_PAYLOAD = (payload) => {
+        if (!payload || !window.appWorld) return;
+        const previous = worldRef.current;
+        const next = window.appWorld(payload);
+        window.APP = next;
+        worldRef.current = next;
+        setWorld(next);
+        window.dispatchEvent(new CustomEvent('autoresearch-world', { detail: next }));
+        setT((cur) => {
+          const wasLive = !previous || cur >= previous.meta.tNow - 1;
+          return wasLive ? next.meta.tNow : Math.min(cur, next.meta.tMax);
+        });
+        setSelected((id) => id && next.nodes.some((n) => n.id === id) ? id : null);
+        setBranchSelection((ids) => ids.filter((id) => next.nodes.some((n) => n.id === id)).slice(-2));
+      };
+      return () => { delete window.__AUTORESEARCH_APPLY_PAYLOAD; };
+    }, []);
+
+    useEffect(() => {
+      if (!window.EventSource) return;
+      let stopped = false;
+      let inFlight = false;
+      async function loadLatest() {
+        if (inFlight) return;
+        inFlight = true;
+        try {
+          const res = await fetch('/api/data?ts=' + Date.now(), { cache: 'no-store' });
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!stopped && data && data.payload) {
+            window.__AUTORESEARCH_APPLY_PAYLOAD(data.payload);
+          }
+        } catch (_) {
+        } finally {
+          inFlight = false;
+        }
+      }
+      const events = new EventSource('/api/events');
+      events.addEventListener('change', loadLatest);
+      events.onerror = () => {};
+      return () => {
+        stopped = true;
+        events.close();
+      };
+    }, []);
 
     // theme + accent
     useEffect(() => { if (t.theme === 'dark') document.documentElement.dataset.theme = 'dark'; else document.documentElement.removeAttribute('data-theme'); }, [t.theme]);
@@ -162,77 +252,103 @@
       return () => clearInterval(iv);
     }, [playing, speed]);
 
-    const onSelect = useCallback((id) => setSelected(id), []);
+    const onSelect = useCallback((id, opts = {}) => {
+      setSelected(id);
+      setBranchSelection((prev) => {
+        if (!opts.shift) return [id];
+        const next = prev.filter((x) => x !== id).concat(id);
+        return next.slice(-2);
+      });
+    }, []);
 
-    return React.createElement('div', { className: 'app' },
-      React.createElement('header', { className: 'top' },
-        React.createElement('div', { className: 'top-left' },
-          React.createElement(Logo),
-          React.createElement('nav', { className: 'nav-tabs' },
-            React.createElement('a', { className: 'nav-tab active', href: 'index.html' }, 'Tree'),
-            React.createElement('a', { className: 'nav-tab', href: 'Compare.html' }, 'Compare')),
-          React.createElement('div', { className: 'prob' },
-            React.createElement('span', { className: 'prob-name' }, E.meta.problem),
-            React.createElement('span', { className: 'prob-sub mono' }, 'minimize ' + E.meta.metric + ' · baseline ' + fmt(E.meta.baseline))),
-          React.createElement(ChangelogBadge)),
-        React.createElement(StatTiles, { T })),
+    return (
+      <div className="app">
+        <header className="top">
+          <div className="top-left">
+            <Logo />
+            <nav className="nav-tabs">
+              <a className="nav-tab active" href="index.html">Tree</a>
+              <a className="nav-tab" href="compare.html">Compare</a>
+            </nav>
+            <div className="prob">
+              <span className="prob-name">{E.meta.problem}</span>
+              <span className="prob-sub mono">{'minimize ' + E.meta.metric + ' · baseline ' + fmt(E.meta.baseline)}</span>
+            </div>
+            <ChangelogBadge />
+          </div>
+          <StatTiles T={T} />
+        </header>
 
-      React.createElement('div', { className: 'body' },
-        React.createElement('main', { className: 'canvas' },
-          React.createElement(window.EvoTree, { T, selected, onSelect, density: t.density, scoreLabels: t.scoreLabels, dimOffLineage: t.dimOffLineage })),
-        React.createElement('aside', { className: 'sidebar' },
-          selected
-            ? React.createElement(window.InspectorPanel, { nodeId: selected, T, speed, onClose: () => setSelected(null), onSelect })
-            : React.createElement('div', { className: 'sb-split' },
-                React.createElement(window.TeamPanel, { T, onSelect }),
-                React.createElement(window.HypothesesPanel, { T, onSelect }),
-                t.showFeed ? React.createElement(window.ActivityPanel, { T, onSelect }) : null))),
+        <div className="body">
+          <main className="canvas">
+            <EvoTree T={T} selected={selected} onSelect={onSelect} density={t.density} scoreLabels={t.scoreLabels} dimOffLineage={t.dimOffLineage} />
+          </main>
+          <aside className="sidebar">
+            {selected
+            ? <InspectorPanel nodeId={selected} T={T} speed={speed} onClose={() => setSelected(null)} onSelect={onSelect} branchSelection={branchSelection} />
+              : <div className="sb-split">
+                  <TeamPanel T={T} onSelect={onSelect} />
+                  <HypothesesPanel T={T} onSelect={onSelect} />
+                  {t.showFeed ? <ActivityPanel T={T} onSelect={onSelect} /> : null}
+                </div>}
+          </aside>
+        </div>
 
-      React.createElement('footer', { className: 'bottom' },
-        React.createElement(Scrubber, { T, setT, playing, setPlaying, speed, setSpeed })),
+        <footer className="bottom">
+          <Scrubber T={T} setT={setT} playing={playing} setPlaying={setPlaying} speed={speed} setSpeed={setSpeed} />
+        </footer>
 
-      // Tweaks
-      React.createElement(window.TweaksPanel, null,
-        React.createElement(window.TweakSection, { label: 'Appearance' }),
-        React.createElement(window.TweakRadio, { label: 'Theme', value: t.theme, options: ['light', 'dark'], onChange: (v) => setTweak('theme', v) }),
-        React.createElement(window.TweakColor, { label: 'Accent', value: t.accent, options: ['blue', 'teal', 'plum'].map((k) => ACCENTS[k]['--accent']), onChange: (v) => {
-          const key = Object.keys(ACCENTS).find((k) => ACCENTS[k]['--accent'] === v) || 'blue'; setTweak('accent', key); } }),
-        React.createElement(window.TweakRadio, { label: 'Density', value: t.density, options: ['compact', 'regular', 'comfy'], onChange: (v) => setTweak('density', v) }),
-        React.createElement(window.TweakSection, { label: 'Tree' }),
-        React.createElement(window.TweakToggle, { label: 'Score labels', value: t.scoreLabels, onChange: (v) => setTweak('scoreLabels', v) }),
-        React.createElement(window.TweakToggle, { label: 'Dim off-lineage', value: t.dimOffLineage, onChange: (v) => setTweak('dimOffLineage', v) }),
-        React.createElement(window.TweakSection, { label: 'Playback' }),
-        React.createElement(window.TweakRadio, { label: 'Default speed', value: String(t.speed), options: ['1', '2', '4'], onChange: (v) => setTweak('speed', +v) }),
-        React.createElement(window.TweakToggle, { label: 'Show message feed', value: t.showFeed, onChange: (v) => setTweak('showFeed', v) })));
+        {/* Tweaks */}
+        <TweaksPanel>
+          <TweakSection label="Appearance" />
+          <TweakRadio label="Theme" value={t.theme} options={['light', 'dark']} onChange={(v) => setTweak('theme', v)} />
+          <TweakColor label="Accent" value={t.accent} options={['blue', 'teal', 'plum'].map((k) => ACCENTS[k]['--accent'])} onChange={(v) => {
+            const key = Object.keys(ACCENTS).find((k) => ACCENTS[k]['--accent'] === v) || 'blue'; setTweak('accent', key); }} />
+          <TweakRadio label="Density" value={t.density} options={['compact', 'regular', 'comfy']} onChange={(v) => setTweak('density', v)} />
+          <TweakSection label="Tree" />
+          <TweakToggle label="Score labels" value={t.scoreLabels} onChange={(v) => setTweak('scoreLabels', v)} />
+          <TweakToggle label="Dim off-lineage" value={t.dimOffLineage} onChange={(v) => setTweak('dimOffLineage', v)} />
+          <TweakSection label="Playback" />
+          <TweakRadio label="Default speed" value={String(t.speed)} options={['1', '2', '4']} onChange={(v) => setTweak('speed', +v)} />
+          <TweakToggle label="Show message feed" value={t.showFeed} onChange={(v) => setTweak('showFeed', v)} />
+        </TweaksPanel>
+      </div>
+    );
   }
 
   function boot() {
     E = window.APP;
     if (!E) {
       ReactDOM.createRoot(document.getElementById('root')).render(
-        React.createElement('div', { className: 'app app-empty' },
-          React.createElement('header', { className: 'top' },
-            React.createElement('div', { className: 'top-left' },
-              React.createElement(Logo),
-              React.createElement('div', { className: 'prob' },
-                React.createElement('span', { className: 'prob-name' }, 'No live autoresearch data'),
-                React.createElement('span', { className: 'prob-sub mono' }, 'start the Autoresearch server with a journal DB'))))))
+        <div className="app app-empty">
+          <header className="top">
+            <div className="top-left">
+              <Logo />
+              <div className="prob">
+                <span className="prob-name">No live autoresearch data</span>
+                <span className="prob-sub mono">start the Autoresearch server with a journal DB</span>
+              </div>
+            </div>
+          </header>
+        </div>
+      )
       return;
     }
-    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   }
 
   async function loadLiveData() {
     try {
-      const base = window.FRONTEND_API_URL || 'http://127.0.0.1:5175';
-      const res = await fetch(base.replace(/\/$/, '') + '/api/data?ts=' + Date.now(), { cache: 'no-store' });
+      const base = window.FRONTEND_API_URL || '';
+      const endpoint = base ? base.replace(/\/$/, '') + '/api/data' : '/api/data';
+      const res = await fetch(endpoint + '?ts=' + Date.now(), { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       if (data && data.payload && window.appWorld) {
         window.APP = window.appWorld(data.payload);
       }
     } catch (_) {
-      window.APP = null;
+      // Keep the synchronous real-data.js payload when the polling endpoint is unavailable.
     }
   }
 

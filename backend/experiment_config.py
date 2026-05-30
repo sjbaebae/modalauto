@@ -12,7 +12,7 @@ from pathlib import Path
 AUTORESEARCH_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = AUTORESEARCH_ROOT.parent
 EXPERIMENTS_ROOT = AUTORESEARCH_ROOT / "experiments"
-DEFAULT_EXPERIMENT = "matmul_reference"
+DEFAULT_EXPERIMENT = "matmul"
 
 
 @dataclass(frozen=True)
