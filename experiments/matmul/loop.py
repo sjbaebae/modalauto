@@ -14,11 +14,14 @@ import csv
 import json
 import math
 import random
+import sys
 import time
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from autoresearch.backend import experiment_config
 from autoresearch.experiments.matmul.matmul import matmul
