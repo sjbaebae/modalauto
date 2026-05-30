@@ -9,7 +9,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-from export_real_data import build_payload, detect_db, render_js, render_runs_js
+from export_real_data import build_payload, detect_db, render_js, render_runs_js, node_trace
 
 
 AUTORESEARCH_ROOT = Path(__file__).resolve().parents[2]
@@ -427,6 +427,31 @@ class AutoresearchHandler(SimpleHTTPRequestHandler):
                 payload["frames"] = read_changelog(journal)
             self.end_no_cache_headers("application/json; charset=utf-8")
             self.wfile.write(json.dumps(payload).encode("utf-8"))
+            return
+
+        if path == "/api/trace":
+            # LIVE real run-playback trace for one node: reads its best.ir and
+            # runs the experiment's real simulator on demand. ?node=<hyp id>
+            # &journal=<id> (optional, to target a specific Compare run).
+            from urllib.parse import parse_qs
+            q = parse_qs(urlparse(self.path).query)
+            node_id = (q.get("node") or [None])[0]
+            journal = None
+            jsel = (q.get("journal") or [None])[0]
+            if jsel:
+                journal = next((j for j in discover_journals() if j.name == jsel
+                                or j.parent.name == jsel), None)
+            journal = journal or pick_journal()
+            self.end_no_cache_headers("application/json; charset=utf-8")
+            if not journal or not node_id:
+                self.wfile.write(json.dumps({"ok": False, "error": "missing journal or node"}).encode("utf-8"))
+                return
+            try:
+                tr = node_trace(journal, node_id)
+                self.wfile.write(json.dumps(tr or {"ok": False, "error": "no_artifact"},
+                                            separators=(",", ":")).encode("utf-8"))
+            except Exception as exc:
+                self.wfile.write(json.dumps({"ok": False, "error": str(exc)}).encode("utf-8"))
             return
 
         super().do_GET()

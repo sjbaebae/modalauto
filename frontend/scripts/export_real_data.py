@@ -106,6 +106,78 @@ def detect_db(journal, db_filename=None):
     return journal / "team_journal.db"
 
 
+def _resolve_artifact(journal, artifact_path):
+    """Resolve a submission's stored artifact_path to a real file on disk,
+    tolerating absolute paths from another checkout / relative paths."""
+    if not artifact_path:
+        return None
+    p = Path(artifact_path)
+    candidates = [p, journal / artifact_path, journal / "artifacts" / p.name]
+    # also try matching the leaf dir name under this journal's artifacts/
+    if p.parent.name:
+        candidates.append(journal / "artifacts" / p.parent.name / p.name)
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
+def node_trace(journal, hyp_id, n=16):
+    """LIVE real execution trace for one hypothesis node — reads its best
+    submission's real `best.ir` and runs the real scorer's `trace_run`.
+    Returns None when there's no runnable artifact (UI falls back).
+    No precompute / export: this is computed on demand per request."""
+    db = detect_db(journal)
+    if not db.exists():
+        return None
+    con = sqlite3.connect(db)
+    con.row_factory = sqlite3.Row
+    try:
+        subs = [dict(r) for r in con.execute(
+            "select * from submissions where hypothesis_id = ?", (hyp_id,))]
+        if not subs:
+            return None
+        ver_by_sub = {}
+        for s in subs:
+            vr = con.execute(
+                "select * from verifications where submission_id = ?", (s["id"],)).fetchone()
+            ver_by_sub[s["id"]] = dict(vr) if vr else None
+
+        def sub_key(sub):
+            ver = ver_by_sub.get(sub["id"])
+            return (
+                0 if ver and ver.get("official_score") is not None else 1,
+                ver.get("official_score") if ver and ver.get("official_score") is not None else 10 ** 12,
+                sub["created_at"],
+            )
+        sub = sorted(subs, key=sub_key)[0]
+    finally:
+        con.close()
+
+    art = _resolve_artifact(journal, sub.get("artifact_path"))
+    if not art:
+        return None
+    try:
+        ir = art.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    # Use the experiment's own scorer (single source of truth for the cost
+    # model + simulator); fall back gracefully if it can't be imported.
+    import sys as _sys
+    exp_root = journal.parent  # experiments/<name>/journal -> experiments/<name>
+    if str(exp_root) not in _sys.path:
+        _sys.path.insert(0, str(exp_root))
+    try:
+        from matmul.matmul import trace_run  # type: ignore
+    except Exception as exc:
+        return {"ok": False, "error": f"scorer unavailable: {exc}"}
+    tr = trace_run(ir, n)
+    tr["node"] = hyp_id
+    tr["candidate"] = sub.get("artifact_path", "").rsplit("/", 1)[-1]
+    return tr
+
+
 def build_payload(journal, db_filename=None):
     db = detect_db(journal, db_filename)
     if not db.exists():

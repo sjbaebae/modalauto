@@ -300,10 +300,86 @@ def generate_tiled_16x16() -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Real execution trace (for the frontend run-playback)
+# ---------------------------------------------------------------------------
+
+def trace_run(ir: str, n: int = 16, *, ticker: int = 48) -> dict:
+    """Execute ``ir`` for an ``n×n`` matmul and return a REAL, compact trace
+    of how it runs — no synthetic approximation.
+
+    Output (all values come straight from the real parser/simulator):
+
+    * ``n`` — matrix dimension (grid is ``n×n``).
+    * ``totalOps`` — real instruction count (excludes the input/output lines).
+    * ``energy`` — real total cost under the v0 Dally model.
+    * ``opCounts`` — ``{add, sub, mul, copy}`` real per-op tallies.
+    * ``cellDoneOp`` — length ``n*n`` array (row-major over the C output
+      cells); ``cellDoneOp[c]`` is the real op index at which that output
+      cell receives its final write. Drives the grid fill, fully real.
+    * ``ticker`` — up to ``ticker`` evenly-sampled real ops, each
+      ``{i, type, label}`` where ``label`` is the real instruction text.
+    * ``ok`` / ``error`` — whether the IR parsed/ran.
+
+    Only the C output addresses are tracked for the grid (a baseline 16×16
+    is thousands of ops, so we never embed the full op list — just the real
+    cell-finalization order + a real sampled ticker + real totals).
+    """
+    try:
+        input_addrs, ops, output_addrs = _parse(ir)
+    except Exception as exc:  # malformed IR — let the UI fall back
+        return {"ok": False, "error": str(exc), "n": n}
+
+    # Output address -> grid cell (row-major). The C output line lists the
+    # n*n result addresses in the same row-major order the scorers expect.
+    cell_of_addr = {addr: idx for idx, addr in enumerate(output_addrs)}
+    n_cells = len(output_addrs)
+    cell_done = [-1] * n_cells
+
+    op_counts = {"add": 0, "sub": 0, "mul": 0, "copy": 0}
+    labels = []  # one human label per real op, in order
+    for i, (op, oprs) in enumerate(ops):
+        op_counts[op] = op_counts.get(op, 0) + 1
+        dest = oprs[0]
+        labels.append(f"{op} {','.join(map(str, oprs))}")
+        # Whenever an op writes a C output address, that cell is (re)finalized
+        # at this real step — the last such write wins.
+        if dest in cell_of_addr:
+            cell_done[cell_of_addr[dest]] = i
+
+    total = len(ops)
+    # Evenly sample real ops for the ticker (keeps payload bounded).
+    if total <= ticker:
+        sample_idx = list(range(total))
+    else:
+        step = total / ticker
+        sample_idx = sorted(set(int(k * step) for k in range(ticker)))
+    sampled = [{"i": i, "type": ops[i][0], "label": labels[i]} for i in sample_idx]
+
+    # Real energy (reuse the simulator on the matching test matrices).
+    energy = None
+    try:
+        inputs, _ = _matmul_test(n)
+        _, energy = _simulate(ir, inputs)
+    except Exception:
+        energy = None
+
+    return {
+        "ok": True,
+        "n": n,
+        "totalOps": total,
+        "energy": energy,
+        "opCounts": op_counts,
+        "cellDoneOp": cell_done,
+        "ticker": sampled,
+    }
+
+
 __all__ = [
     "score_1x1", "score_4x4", "score_16x16",
     "generate_baseline_4x4", "generate_baseline_16x16",
     "generate_tiled_16x16",
+    "trace_run",
 ]
 
 

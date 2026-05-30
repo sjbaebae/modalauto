@@ -20,7 +20,7 @@ FRONTEND_SCRIPTS = AUTORESEARCH_ROOT / "frontend" / "scripts"
 if str(FRONTEND_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(FRONTEND_SCRIPTS))
 
-from export_real_data import build_payload, detect_db  # noqa: E402
+from export_real_data import build_payload, detect_db, node_trace  # noqa: E402
 
 
 def journal_mtime_ns(journal: Path) -> int:
@@ -65,8 +65,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self) -> None:
-        path = urlparse(self.path).path
-        if path not in {"/api/data", "/api/status"}:
+        parsed = urlparse(self.path)
+        path = parsed.path
+        if path not in {"/api/data", "/api/status", "/api/trace"}:
             self.send_json({"error": "not_found"}, 404)
             return
         journal = pick_journal(self.journal)
@@ -75,6 +76,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/status":
             self.send_json({"journal": str(journal), "db": str(detect_db(journal))})
+            return
+        if path == "/api/trace":
+            from urllib.parse import parse_qs
+            node_id = (parse_qs(parsed.query).get("node") or [None])[0]
+            if not node_id:
+                self.send_json({"ok": False, "error": "missing node"}, 400)
+                return
+            tr = node_trace(journal, node_id)
+            self.send_json(tr or {"ok": False, "error": "no_artifact"})
             return
         payload = build_payload(journal)
         self.send_json({"journal": str(journal), "db": str(detect_db(journal)), "payload": payload})

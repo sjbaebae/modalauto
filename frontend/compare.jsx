@@ -198,11 +198,13 @@
   function DiffRow({ k, a, b, f, lowerBetter, neutral }) {
     f = f || fmt; let aw = false, bw = false;
     if (!neutral && a !== b && typeof a === 'number') { if (lowerBetter) { aw = a < b; bw = b < a; } else { aw = a > b; bw = b > a; } }
+    const va = f(a);
+    const vb = f(b);
     return (
       <div className="drow">
         <span className="dk">{k}</span>
-        <span className={'dv mono' + (aw ? ' win' : '')}>{f(a)}</span>
-        <span className={'dv mono' + (bw ? ' win' : '')}>{f(b)}</span>
+        <span className={'dv mono' + (aw ? ' win' : '')} title={String(va)}>{va}</span>
+        <span className={'dv mono' + (bw ? ' win' : '')} title={String(vb)}>{vb}</span>
       </div>
     );
   }
@@ -318,7 +320,7 @@
                 <DiffRow k="Energy" a={nodeA.score} b={nodeB.score} lowerBetter />
                 <DiffRow k="vs baseline" a={world.meta.baseline - nodeA.score} b={world.meta.baseline - nodeB.score} f={(x) => '−' + fmt(x)} />
                 <DiffRow k="Generation" a={nodeA.gen} b={nodeB.gen} neutral />
-                <DiffRow k="Family" a={nodeA.family} b={nodeB.family} f={(x) => x} neutral />
+                <DiffRow k="Family" a={nodeA.family} b={nodeB.family} f={(x) => String(x || '—').replace(/_/g, ' ')} neutral />
                 <DiffRow k="Semantic" a={nodeA.semantic || '—'} b={nodeB.semantic || '—'} f={(x) => x} neutral />
               </Section>
               <Section title="Where they diverge">

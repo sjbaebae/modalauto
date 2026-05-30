@@ -36,7 +36,30 @@
   }
 
   function RunPlayback({ node, speed }) {
-    const { ops, cellDoneOp } = useMemo(() => buildOps(node), [node.id]);
+    // REAL execution trace, fetched live from /api/trace (reads the node's
+    // best.ir and runs the experiment's real simulator). Falls back to a
+    // representative synthetic run only when no real artifact is available.
+    const [real, setReal] = useState(null);        // null=loading/none, object=real trace
+    const [tried, setTried] = useState(false);
+    useEffect(() => {
+      let alive = true;
+      setReal(null); setTried(false);
+      const base = (window.FRONTEND_API_URL || '').replace(/\/$/, '');
+      fetch(base + '/api/trace?node=' + encodeURIComponent(node.id) + '&ts=' + Date.now(), { cache: 'no-store' })
+        .then((r) => r.ok ? r.json() : null)
+        .then((tr) => { if (alive) { setReal(tr && tr.ok && tr.cellDoneOp ? tr : null); setTried(true); } })
+        .catch(() => { if (alive) setTried(true); });
+      return () => { alive = false; };
+    }, [node.id]);
+
+    const synth = useMemo(() => buildOps(node), [node.id]);
+    const isReal = !!real;
+    const nCells = isReal ? real.cellDoneOp.length : 256;
+    // unified "timeline": real uses true op count, synth uses its op list length
+    const total = isReal ? Math.max(1, real.totalOps) : synth.ops.length;
+    // real runs are thousands of ops — advance in ~240 frames regardless
+    const stepSize = isReal ? Math.max(1, Math.round(total / 240)) : 1;
+
     const [head, setHead] = useState(0);
     const [playing, setPlaying] = useState(true);
     const cellRefs = useRef([]);
@@ -44,31 +67,52 @@
     const traceRef = useRef(null);
     const fitCol = node.fit != null ? node.fit : 3;
 
+    useEffect(() => { setHead(0); }, [node.id, isReal]);
+
     // imperative cell paint
     useEffect(() => {
-      const cur = ops[head];
-      const active = new Set(cur ? cur.cells : []);
-      for (let i = 0; i < 256; i++) {
-        const el = cellRefs.current[i]; if (!el) continue;
-        if (active.has(i)) { el.style.background = 'var(--accent)'; el.style.opacity = '1'; }
-        else if (cellDoneOp[i] <= head) { el.style.background = `var(--fit-${fitCol})`; el.style.opacity = '0.5'; }
-        else { el.style.background = 'var(--surface-inset)'; el.style.opacity = '1'; }
+      if (isReal) {
+        const done = real.cellDoneOp;
+        for (let i = 0; i < nCells; i++) {
+          const el = cellRefs.current[i]; if (!el) continue;
+          const d = done[i];
+          if (d >= 0 && d <= head && d > head - stepSize) { el.style.background = 'var(--accent)'; el.style.opacity = '1'; }
+          else if (d >= 0 && d <= head) { el.style.background = `var(--fit-${fitCol})`; el.style.opacity = '0.5'; }
+          else { el.style.background = 'var(--surface-inset)'; el.style.opacity = '1'; }
+        }
+      } else {
+        const cur = synth.ops[head];
+        const active = new Set(cur ? cur.cells : []);
+        for (let i = 0; i < 256; i++) {
+          const el = cellRefs.current[i]; if (!el) continue;
+          if (active.has(i)) { el.style.background = 'var(--accent)'; el.style.opacity = '1'; }
+          else if (synth.cellDoneOp[i] <= head) { el.style.background = `var(--fit-${fitCol})`; el.style.opacity = '0.5'; }
+          else { el.style.background = 'var(--surface-inset)'; el.style.opacity = '1'; }
+        }
       }
-      if (barRef.current) barRef.current.style.width = ((head / (ops.length - 1)) * 100) + '%';
-    }, [head, ops, cellDoneOp, fitCol]);
+      if (barRef.current) barRef.current.style.width = ((head / Math.max(1, total - 1)) * 100) + '%';
+    }, [head, isReal, real, synth, fitCol, nCells, total, stepSize]);
 
     // auto-advance
     useEffect(() => {
       if (!playing) return;
       const iv = setInterval(() => {
-        setHead((h) => (h >= ops.length - 1 ? 0 : h + 1));
+        setHead((h) => (h >= total - 1 ? 0 : Math.min(total - 1, h + stepSize)));
       }, Math.max(28, 90 / (speed || 1)));
       return () => clearInterval(iv);
-    }, [playing, ops.length, speed]);
+    }, [playing, total, stepSize, speed]);
 
-    const cur = ops[head];
-    const traceWindow = [];
-    for (let i = Math.max(0, head - 5); i <= Math.min(ops.length - 1, head + 2); i++) traceWindow.push({ i, op: ops[i] });
+    // trace ticker window
+    let traceWindow = [];
+    if (isReal) {
+      const tick = real.ticker || [];
+      const upto = tick.filter((o) => o.i <= head);
+      const start = Math.max(0, upto.length - 6);
+      traceWindow = upto.slice(start).map((o) => ({ i: o.i, op: { type: o.type, label: o.label } }));
+    } else {
+      for (let i = Math.max(0, head - 5); i <= Math.min(synth.ops.length - 1, head + 2); i++) traceWindow.push({ i, op: synth.ops[i] });
+    }
+    const pctFilled = Math.round((head / Math.max(1, total - 1)) * 100);
 
     if (node.outcome === 'reject') {
       return (
