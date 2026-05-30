@@ -26,10 +26,16 @@ import numpy as np
 # Make `autoresearch` importable when this module is run as a script
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from autoresearch.backend import experiment_config
+from autoresearch.backend import experiment_config, team_journal
 from autoresearch.experiments.evogym_walker.walker import scorer as evo_scorer
 from autoresearch.experiments.evogym_walker.walker import candidates as evo_candidates
 from autoresearch.experiments.evogym_walker.walker.candidates import Candidate
+
+
+# team_journal.official_score is INTEGER, but evogym uses float rewards.
+# Store a scaled int for existing schema compatibility and expose the real
+# value in buckets_json for the UI/export layer.
+SCORE_SCALE = 10000
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -137,8 +143,10 @@ def write_run(
     }
     (artifact_dir / "summary.json").write_text(json.dumps(summary, indent=2))
 
-    # Run note
-    (artifact_dir / "run.md").write_text(
+    # Run note follows the journal/runs convention used by the frontend.
+    runs_dir = journal_root / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    (runs_dir / f"{run_id}.md").write_text(
         f"# evogym run {run_id}\n\n"
         f"- Domain: Walker-v0, direction = maximize forward_reward\n"
         f"- Candidates: {len(rows)} ({summary['n_ok']} ok, {summary['n_invalid']} invalid)\n"
@@ -146,8 +154,125 @@ def write_run(
         f"- Rollout steps: {rollout_steps}\n"
         f"- Best: {best_row.name if best_row else 'none'} "
         f"= {best_row.score if best_row else '—'}\n"
+        f"- Artifacts: `{artifact_dir.relative_to(journal_root)}/`\n"
     )
     return artifact_dir
+
+
+def write_journal(
+    run_id: str,
+    rows: list[Row],
+    cands: list[Candidate],
+    journal_root: Path,
+    artifact_dir: Path,
+    seeds: list[int],
+    rollout_steps: int,
+    hypothesis_record: dict | None = None,
+) -> None:
+    """Write one hypothesis/submission/verification row per candidate."""
+    db_path = journal_root / "team_journal.db"
+    team_journal.init_db(db_path)
+    db = team_journal.connect(db_path)
+    stamp = team_journal.now()
+
+    team_id = "evogym-loop-team"
+    db.execute(
+        "INSERT OR IGNORE INTO teams (id, status, focus, context_json, created_at, updated_at) "
+        "VALUES (?, 'active', ?, '{}', ?, ?)",
+        (team_id, "evogym Walker-v0 morphology search", stamp, stamp),
+    )
+    agent_id = "evogym-loop-agent"
+    db.execute(
+        "INSERT OR IGNORE INTO agents (id, role, team_id, status, created_at, updated_at) "
+        "VALUES (?, 'implementor', ?, 'idle', ?, ?)",
+        (agent_id, team_id, stamp, stamp),
+    )
+
+    batch_context = {
+        "run_id": run_id,
+        "n_candidates": len(cands),
+        "seeds": seeds,
+        "rollout_steps": rollout_steps,
+        "domain": "evogym-walker",
+        "direction": "maximize",
+        "batch_hypothesis": hypothesis_record,
+    }
+
+    for r, c in zip(rows, cands):
+        hyp_id = team_journal.next_id(db, "hyp", "hypotheses")
+        n_h = int((c.body == 3).sum())
+        n_v = int((c.body == 4).sum())
+        n_voxels = int((c.body != 0).sum())
+        ctx = dict(batch_context, candidate=c.name, family=c.family,
+                   notes=c.notes, n_voxels=n_voxels)
+        db.execute(
+            """
+            INSERT INTO hypotheses
+                (id, team_id, proposer_agent_id, priority, status,
+                 title, rationale, expected_movement, context_json,
+                 created_at, updated_at)
+            VALUES (?, ?, ?, 0, 'submitted', ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                hyp_id, team_id, agent_id, f"{c.name} · {c.family}", c.notes,
+                f"voxels={n_voxels} h-act={n_h} v-act={n_v}; "
+                f"score via {len(seeds)}-seed mean over {rollout_steps} steps",
+                json.dumps(ctx), stamp, stamp,
+            ),
+        )
+
+        sub_id = team_journal.next_id(db, "sub", "submissions")
+        body_path = artifact_dir / f"bodies/{c.name}.npy"
+        body_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(body_path, c.body)
+        summary = {
+            "name": c.name,
+            "family": c.family,
+            "notes": c.notes,
+            "n_voxels": n_voxels,
+            "n_h_actuators": n_h,
+            "n_v_actuators": n_v,
+        }
+        db.execute(
+            """
+            INSERT INTO submissions
+                (id, hypothesis_id, team_id, implementor_agent_id, status,
+                 artifact_path, candidate_summary_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'verified', ?, ?, ?, ?)
+            """,
+            (sub_id, hyp_id, team_id, agent_id,
+             str(body_path), json.dumps(summary), stamp, stamp),
+        )
+
+        ver_id = team_journal.next_id(db, "ver", "verifications")
+        official_score = (
+            int(round(r.score * SCORE_SCALE))
+            if r.semantic == "ok" and r.score is not None else None
+        )
+        buckets = {
+            "score_float": r.score,
+            "score_std": r.score_std,
+            "score_min": r.score_min,
+            "score_max": r.score_max,
+            "score_scale": SCORE_SCALE,
+            "n_voxels": n_voxels,
+            "stochastic": True,
+            "seeds": seeds,
+        }
+        decision = "accept" if r.semantic == "ok" else "reject"
+        db.execute(
+            """
+            INSERT INTO verifications
+                (id, submission_id, verifier_agent_id, semantic, official_score,
+                 buckets_json, decision, error, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (ver_id, sub_id, agent_id, r.semantic, official_score,
+             json.dumps(buckets), decision, r.error, stamp),
+        )
+
+    db.commit()
+    db.close()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -160,6 +285,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--journal-root", type=Path, default=JOURNAL_ROOT)
     parser.add_argument("--experiment-root", type=Path, default=None,
                         help="override experiment root (workflow.json passes this)")
+    parser.add_argument("--hypothesis-json", type=Path, default=None,
+                        help="agent-provided hypothesis (README runner contract)")
     parser.add_argument("--n-mutations", type=int, default=4,
                         help="extra mutated children of the random batch's first candidate")
     args = parser.parse_args(argv)
@@ -168,6 +295,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.experiment_root is not None:
         layout = experiment_config.layout(root=args.experiment_root)
         args.journal_root = layout.journal_dir
+
+    hypothesis_record: dict | None = None
+    if args.hypothesis_json is not None and args.hypothesis_json.exists():
+        hypothesis_record = json.loads(args.hypothesis_json.read_text())
+        print(f"[hyp] {hypothesis_record.get('title', '(untitled)')}", file=sys.stderr)
 
     seeds = [int(s) for s in args.seeds.split(",")]
     rng = np.random.default_rng(args.seed)
@@ -182,6 +314,10 @@ def main(argv: list[str] | None = None) -> int:
     artifact_dir = write_run(args.run_id, rows, cands,
                               args.journal_root.expanduser().resolve(),
                               seeds, args.rollout_steps)
+    write_journal(args.run_id, rows, cands,
+                  args.journal_root.expanduser().resolve(),
+                  artifact_dir, seeds, args.rollout_steps,
+                  hypothesis_record=hypothesis_record)
 
     valid = sorted([r for r in rows if r.semantic == "ok"], key=lambda r: -r.score)
     out = {

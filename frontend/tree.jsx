@@ -6,7 +6,31 @@
   window.addEventListener('autoresearch-world', () => { E = window.APP; });
 
   const VW = 2200, VH = 860, PAD = 70;
-  const SMIN = E.meta.best == null ? E.meta.baseline : E.meta.best, SMAX = E.meta.baseline;
+  const IS_MAX = String(E.meta.direction || 'minimize').toLowerCase() === 'maximize';
+  const scoreValues = E.nodes
+    .map((n) => n.score)
+    .concat([E.meta.baseline, E.meta.best, E.meta.target])
+    .filter((v) => typeof v === 'number' && Number.isFinite(v));
+  if (!scoreValues.length) scoreValues.push(0, 1);
+  const SLOW = Math.min(...scoreValues);
+  const SHIGH = Math.max(...scoreValues);
+  const SCORE_SPAN = Math.max(1e-9, SHIGH - SLOW);
+  const WORST_SCORE = IS_MAX ? SLOW : SHIGH;
+  const BEST_SCORE = IS_MAX ? SHIGH : SLOW;
+  const clampScore = (score) => Math.max(SLOW, Math.min(SHIGH, score));
+  const scoreY = (score) => {
+    const sc = clampScore(score);
+    const rank = IS_MAX ? (SHIGH - sc) / SCORE_SPAN : (sc - SLOW) / SCORE_SPAN;
+    return PAD + rank * (VH - 2 * PAD);
+  };
+  const scoreNudge = (amount) => (IS_MAX ? -amount : amount);
+  const fmtScore = (n) => {
+    if (n == null) return '—';
+    if (!Number.isFinite(n)) return String(n);
+    const abs = Math.abs(n);
+    const maximumFractionDigits = Number.isInteger(n) ? 0 : abs >= 100 ? 2 : abs >= 1 ? 3 : 4;
+    return n.toLocaleString(undefined, { maximumFractionDigits });
+  };
   const ROLE_LANES = ['topline_manager', 'meta_agent', 'insight_generator', 'creative_explorer', 'global_searcher', 'implementor', 'verifier', 'researcher'];
   const mmss = (t) => String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(Math.round(t % 60)).padStart(2, '0');
   const hasRealLineage = E.nodes.some((n) => n.parent);
@@ -33,10 +57,11 @@
     E.nodes.forEach((n, i) => {
       if (n.score != null) ls[n.id] = n.score;
       else {
-        const p = n.parent ? ls[n.parent] : SMAX;
+        const p = n.parent ? ls[n.parent] : WORST_SCORE;
         // failed/in-flight nodes sit near their parent with a deterministic nudge
-        const nudge = n.outcome === 'reject' ? 2600 : 900;
-        ls[n.id] = Math.min(SMAX, (p || SMAX) + ((i % 7) - 3) * 220 + nudge * 0.4);
+        const nudge = (n.outcome === 'reject' ? 0.12 : 0.04) * SCORE_SPAN;
+        const jitter = ((i % 7) - 3) * SCORE_SPAN * 0.01;
+        ls[n.id] = clampScore((p == null ? WORST_SCORE : p) + scoreNudge(nudge) + jitter);
       }
     });
     const branchY = {};
@@ -75,7 +100,6 @@
     }
 
     const pos = {};
-    const span = SMAX - SMIN || 1;
     const nodeTimes = E.nodes.map((n) => n.tVerified || n.tProposed || 0);
     const tMin = Math.min(...nodeTimes);
     const tSpan = Math.max(1, Math.max(...nodeTimes) - tMin);
@@ -109,10 +133,8 @@
       const x = PAD + xRatio * (VW - 2 * PAD);
       let y;
       if (useBranchLaneLayout) {
-        const sc = Math.max(SMIN, Math.min(SMAX, ls[n.id]));
-        const scoreY = PAD + ((sc - SMIN) / span) * (VH - 2 * PAD);
         const jitter = (hash01(n.id) - 0.5) * 12;
-        y = scoreY + (duplicateOffset[n.id] || 0) + jitter;
+        y = scoreY(ls[n.id]) + (duplicateOffset[n.id] || 0) + jitter;
       } else if (useLaneLayout) {
         const laneKey = n.proposerRole || n.family || 'unknown';
         let lane = ROLE_LANES.indexOf(laneKey);
@@ -121,9 +143,8 @@
         const scoreOffset = n.score === E.meta.best ? -laneH * 0.18 : n.score === E.meta.baseline ? laneH * 0.18 : 0;
         y = PAD + laneH * (lane + 0.5) + (hash01(n.id) - 0.5) * laneH * 0.62 + scoreOffset;
       } else {
-        const sc = Math.max(SMIN, Math.min(SMAX, ls[n.id]));
         const jitter = useTreeLayout ? (hash01(n.id) - 0.5) * 26 : 0;
-        y = PAD + ((sc - SMIN) / span) * (VH - 2 * PAD) + jitter;
+        y = scoreY(ls[n.id]) + jitter;
       }
       y = Math.max(PAD, Math.min(VH - PAD, y));
       pos[n.id] = { x, y };
@@ -234,7 +255,7 @@
       const out = new Set();
       const sorted = [...E.nodes]
         .filter((n) => n.score != null && n.tVerified != null)
-        .sort((a, b) => (a.tVerified - b.tVerified) || (a.score - b.score) || a.id.localeCompare(b.id));
+        .sort((a, b) => (a.tVerified - b.tVerified) || (IS_MAX ? b.score - a.score : a.score - b.score) || a.id.localeCompare(b.id));
       sorted.forEach((n, i) => {
         if (n.isFrontier || i === 0 || i === sorted.length - 1 || i % Math.max(2, Math.ceil(sorted.length / 8)) === 0) out.add(n.id);
       });
@@ -325,7 +346,7 @@
                 {/* score label on bigger verified nodes */}
                 {(st === 'verified' && scoreLabels && labelIds.has(n.id) && view.k > 0.7)
                   ? <text y={-r - 8 / view.k} textAnchor="middle" className="node-label" style={{ fontSize: (11 / view.k) + 'px' }}>
-                      {(n.score / 1000).toFixed(1) + 'k'}</text>
+                      {fmtScore(n.score)}</text>
                   : null}
               </g>;
             })}
@@ -362,7 +383,7 @@
               <span className="dot" />{hover.st}</span></div>
           <div className="tt-title">{hover.n.title}</div>
           {hover.n.score != null && hover.st === 'verified'
-            ? <div className="tt-score mono">{hover.n.score.toLocaleString() + ' energy'}</div>
+            ? <div className="tt-score mono">{fmtScore(hover.n.score) + ' ' + (E.meta.metric || 'score')}</div>
             : <div className="tt-score mono" style={{ color: 'var(--ink-3)' }}>
                 {hover.st === 'rejected' ? 'rejected · ' + (hover.n.semantic) : 'in progress…'}</div>}
         </div>
@@ -377,8 +398,8 @@
           <span className="eyebrow">{'fitness'}</span>
           <div className="legend-ramp">
             {[0,1,2,3,4,5,6].map((f) => <span key={f} style={{ background: fitVar(f) }} />)}</div>
-          <span className="mono legend-cap">{(SMAX/1000).toFixed(0) + 'k'}</span>
-          <span className="mono legend-cap" style={{color:'var(--fit-6)'}}>{(SMIN/1000).toFixed(1) + 'k'}</span></div>
+          <span className="mono legend-cap">{fmtScore(WORST_SCORE)}</span>
+          <span className="mono legend-cap" style={{color:'var(--fit-6)'}}>{fmtScore(BEST_SCORE)}</span></div>
         <div className="tree-ctrls">
           <button className="btn icon" title="fit" onClick={fit}>{'⤢'}</button>
           <button className="btn icon" title="zoom in" onClick={() => setView(v=>({...v,k:Math.min(9,v.k*1.2)}))}>{'+'}</button>

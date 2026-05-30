@@ -5,6 +5,20 @@
   "direction": "maximize",
   "primary_metric": "mean_forward_reward",
   "stochastic": true,
+  "visualizations": [
+    {
+      "type": "voxel_grid",
+      "label": "Body"
+    },
+    {
+      "type": "metrics",
+      "label": "Evaluation"
+    },
+    {
+      "type": "artifact_files",
+      "label": "Artifacts"
+    }
+  ],
   "runner": {
     "command": "experiments/evogym_walker/loop.py",
     "args": [

@@ -71,6 +71,9 @@
 .snap-mk { font-size: var(--fs-micro); color: var(--ink-3); }
 .snap-mv { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .snap-run-wrap { margin-top: 2px; }
+.snap-artifacts { gap: 10px; }
+.snap-artifacts .voxel-grid { width: min(100%, 180px); align-self: start; }
+.snap-artifacts .artifact-file { grid-template-columns: 46px minmax(0, 1fr); }
 
 /* single overlay graph + diff panel */
 .cbody2 { display: grid; grid-template-columns: 1fr 346px; min-height: 0; }

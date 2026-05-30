@@ -497,16 +497,17 @@ def requeue_stale(db: sqlite3.Connection, stale_seconds: int) -> dict[str, int]:
     return changed
 
 
-def best_frontier(db: sqlite3.Connection) -> dict[str, Any]:
+def best_frontier(db: sqlite3.Connection, maximize: bool = False) -> dict[str, Any]:
+    direction = "DESC" if maximize else "ASC"
     row = db.execute(
-        """
+        f"""
         SELECT v.official_score, v.submission_id, s.hypothesis_id, s.artifact_path,
                h.title, v.created_at
         FROM verifications v
         JOIN submissions s ON s.id = v.submission_id
         JOIN hypotheses h ON h.id = s.hypothesis_id
         WHERE v.decision = 'accept' AND v.official_score IS NOT NULL
-        ORDER BY v.official_score ASC, v.created_at DESC
+        ORDER BY v.official_score {direction}, v.created_at DESC
         LIMIT 1
         """
     ).fetchone()
@@ -536,7 +537,11 @@ def cmd_status(args: argparse.Namespace) -> int:
     init_db(args.db)
     db = connect(args.db)
     state = counts(db)
-    state["best_frontier"] = best_frontier(db)
+    workflow = experiment_config.load_workflow(args.experiment_root / "workflow.json")
+    state["best_frontier"] = best_frontier(
+        db,
+        maximize=str(workflow.get("direction", "")).lower() == "maximize",
+    )
     db.close()
     print(json.dumps(state, indent=2, sort_keys=True))
     return 0
