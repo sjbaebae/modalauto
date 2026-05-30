@@ -20,12 +20,13 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from autoresearch.matmul import matmul
+from autoresearch import experiment_config
+from autoresearch.experiments.matmul_reference.matmul import matmul
 
 
 N = 16
-REPO_ROOT = Path(__file__).resolve().parents[1]
-JOURNAL_ROOT = REPO_ROOT / "autoresearch" / "matmul_journal"
+REPO_ROOT = Path(__file__).resolve().parents[3]
+JOURNAL_ROOT = experiment_config.DEFAULT_JOURNAL_DIR
 
 
 @dataclass
@@ -613,13 +614,15 @@ def write_run(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--experiment", help="experiment name under experiments/")
+    parser.add_argument("--experiment-root", type=Path, help="experiment directory containing journal/ and worktrees/")
     parser.add_argument("--run-id", default="simplified_loop_v1")
     parser.add_argument("--target", type=int, default=66_707)
     parser.add_argument("--verify-cases", type=int, default=8)
     parser.add_argument("--verify-top", type=int, default=3)
     parser.add_argument("--seed", type=int, default=20260521)
     parser.add_argument("--hypothesis-json", type=Path)
-    parser.add_argument("--journal-root", type=Path, default=JOURNAL_ROOT)
+    parser.add_argument("--journal-root", type=Path)
     parser.add_argument("--avoid-candidates-json", default="[]")
     parser.add_argument("--disable-meta-operator", action="store_true")
     parser.add_argument(
@@ -642,6 +645,9 @@ def main(argv: list[str] | None = None) -> int:
         help="include copied/reference mechanisms; invalid for blind from-scratch runs",
     )
     args = parser.parse_args(argv)
+    exp = experiment_config.layout(args.experiment, args.experiment_root)
+    args.experiment_root = exp.root
+    args.journal_root = (args.journal_root or exp.journal_dir).expanduser().resolve()
     args.strategy = strategy_from_hypothesis(args.hypothesis_json, args.strategy, args.disable_meta_operator)
     try:
         avoid_candidates = {str(x) for x in json.loads(args.avoid_candidates_json)}

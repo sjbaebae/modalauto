@@ -198,6 +198,9 @@ def build_payload(journal, db_filename=None):
         context = load_json(hyp["context_json"], {})
         evolution = context.get("evolution") if isinstance(context.get("evolution"), dict) else {}
         summary = load_json(sub["candidate_summary_json"], {}) if sub else {}
+        artifact = load_json(sub["artifact_json"], {}) if sub else {}
+        if not isinstance(artifact, dict):
+            artifact = {}
         best = summary.get("best") if isinstance(summary, dict) else {}
         if not isinstance(best, dict):
             best = {}

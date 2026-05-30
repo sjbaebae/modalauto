@@ -16,10 +16,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from autoresearch import experiment_config
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DB = REPO_ROOT / "autoresearch" / "matmul_journal" / "team_journal.db"
-DEFAULT_WORKTREE_ROOT = REPO_ROOT / "autoresearch" / "worktrees"
+DEFAULT_DB = experiment_config.DEFAULT_TEAM_DB
+DEFAULT_WORKTREE_ROOT = experiment_config.DEFAULT_WORKTREE_ROOT
 LEASE_SECONDS = 900
 SCALE_ACTION_LOCK_SECONDS = 5
 
@@ -785,8 +787,10 @@ def cmd_requeue_stale(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--db", type=Path, default=DEFAULT_DB)
-    parser.add_argument("--worktree-root", type=Path, default=DEFAULT_WORKTREE_ROOT)
+    parser.add_argument("--experiment", help="experiment name under experiments/")
+    parser.add_argument("--experiment-root", type=Path, help="experiment directory containing journal/ and worktrees/")
+    parser.add_argument("--db", type=Path)
+    parser.add_argument("--worktree-root", type=Path)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_init = sub.add_parser("init")
@@ -869,6 +873,10 @@ def main(argv: list[str] | None = None) -> int:
     p_requeue.set_defaults(func=cmd_requeue_stale)
 
     args = parser.parse_args(argv)
+    exp = experiment_config.layout(args.experiment, args.experiment_root)
+    args.experiment_root = exp.root
+    args.db = (args.db or exp.team_db).expanduser().resolve()
+    args.worktree_root = (args.worktree_root or exp.worktree_root).expanduser().resolve()
     return args.func(args)
 
 

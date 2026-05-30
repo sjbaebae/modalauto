@@ -11,6 +11,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+from autoresearch import experiment_config
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 AUTORESEARCH_ROOT = REPO_ROOT / "autoresearch"
@@ -39,7 +41,8 @@ def pick_journal(configured: Path | None = None) -> Path | None:
     if env:
         path = Path(env).expanduser().resolve()
         return path if detect_db(path).exists() else None
-    candidates = [path for path in AUTORESEARCH_ROOT.glob("matmul_journal*") if detect_db(path).exists()]
+    candidates = [path for path in (AUTORESEARCH_ROOT / "experiments").glob("*/journal") if detect_db(path).exists()]
+    candidates.extend(path for path in AUTORESEARCH_ROOT.glob("*_journal*") if detect_db(path).exists())
     return max(candidates, key=journal_mtime_ns) if candidates else None
 
 
@@ -80,10 +83,14 @@ class Handler(BaseHTTPRequestHandler):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--experiment", help="experiment name under experiments/")
+    parser.add_argument("--experiment-root", type=Path, help="experiment directory containing journal/ and worktrees/")
     parser.add_argument("--journal", type=Path)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=int(os.environ.get("EVOFLOW_API_PORT", "5175")))
     args = parser.parse_args(argv)
+    if not args.journal and (args.experiment or args.experiment_root):
+        args.journal = experiment_config.layout(args.experiment, args.experiment_root).journal_dir
     Handler.journal = args.journal
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"EvoFlow API http://{args.host}:{args.port}/api/evoflow-data")

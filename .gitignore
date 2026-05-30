@@ -12,6 +12,15 @@ venv/
 
 # Generated experiment output
 experiments/output/
+experiments/*/journal/artifacts/
+experiments/*/journal/messages/
+experiments/*/journal/messages.before-*/
+experiments/*/journal/runs/
+experiments/*/journal/*.db
+experiments/*/journal/*.db-shm
+experiments/*/journal/*.db-wal
+experiments/*/journal/*.jsonl
+experiments/*/worktrees/
 
 # Autoresearch run journals, messages, databases, and generated artifacts
 matmul_journal/artifacts/
@@ -31,3 +40,6 @@ visualization/node_modules/
 visualization/dist/
 visualization/build/
 visualization/evoflow/scripts/__pycache__/
+visualization/evoflow/*.db
+visualization/evoflow/*.db-shm
+visualization/evoflow/*.db-wal

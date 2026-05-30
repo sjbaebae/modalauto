@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from autoresearch.matmul_loop import main
+from autoresearch.experiments.matmul_reference.loop import main
 
 
 if __name__ == "__main__":

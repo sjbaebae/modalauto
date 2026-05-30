@@ -1,14 +1,15 @@
 # Elastic Agent Team Architecture
 
 Keep the metric and leaderboard untouched. Agents work in isolated folders under
-`autoresearch/worktrees/`.
+the active experiment's `worktrees/` directory, for example
+`autoresearch/experiments/matmul_reference/worktrees/`.
 
 Use two coordination layers:
 
 - SQLite journal: durable central repository for teams, agents, hypotheses,
   submissions, verifications, and manager events.
 - Filesystem message board: direct agent communication through append-only JSONL
-  channels under `autoresearch/matmul_journal/messages/`.
+  channels under the active experiment's `journal/messages/`.
 
 Do not use the DB as chat. Put short-lived handoffs, nudges, stop requests, and
 manager scale actions on the message board.
@@ -70,18 +71,18 @@ researchers  1 normally, 0 only with --allow-idle-retire
 ## Commands
 
 ```bash
-autoresearch/bin/autoresearch-team init
-autoresearch/bin/autoresearch-team status
-autoresearch/bin/autoresearch-team scale-plan
-autoresearch/bin/autoresearch-team register-agent creative_explorer
-autoresearch/bin/autoresearch-team add-hypothesis --title "Try dead-storage reuse after k-panel"
-autoresearch/bin/autoresearch-board post --sender manager-1 --channel manager-actions --kind scale --payload-json '{}'
-autoresearch/bin/autoresearch-board inbox --agent-id impl-1
-autoresearch/bin/autoresearch-board ack --agent-id impl-1
-autoresearch/bin/autoresearch-memory fetch-arxiv 'cat:cs.DC AND matmul' --max-results 3
-autoresearch/bin/autoresearch-memory search 'communication avoiding matrix multiplication'
-autoresearch/bin/autoresearch-agent topline_manager --agent-id manager-1 --max-steps 100
-autoresearch/bin/autoresearch-agent implementor --agent-id impl-1 --max-steps 10
+autoresearch/bin/autoresearch-team --experiment matmul_reference init
+autoresearch/bin/autoresearch-team --experiment matmul_reference status
+autoresearch/bin/autoresearch-team --experiment matmul_reference scale-plan
+autoresearch/bin/autoresearch-team --experiment matmul_reference register-agent creative_explorer
+autoresearch/bin/autoresearch-team --experiment matmul_reference add-hypothesis --title "Try dead-storage reuse after k-panel"
+autoresearch/bin/autoresearch-board --experiment matmul_reference post --sender manager-1 --channel manager-actions --kind scale --payload-json '{}'
+autoresearch/bin/autoresearch-board --experiment matmul_reference inbox --agent-id impl-1
+autoresearch/bin/autoresearch-board --experiment matmul_reference ack --agent-id impl-1
+autoresearch/bin/autoresearch-memory --experiment matmul_reference fetch-arxiv 'cat:cs.DC AND matmul' --max-results 3
+autoresearch/bin/autoresearch-memory --experiment matmul_reference search 'communication avoiding matrix multiplication'
+autoresearch/bin/autoresearch-agent topline_manager --experiment matmul_reference --agent-id manager-1 --max-steps 100
+autoresearch/bin/autoresearch-agent implementor --experiment matmul_reference --agent-id impl-1 --max-steps 10
 ```
 
 The `scale-plan` command does not spawn processes. It returns desired role
@@ -98,14 +99,14 @@ minimal watchdog loop that keeps the system from freezing midway through a run.
 For self-retirement, a manager should:
 
 ```bash
-autoresearch/bin/autoresearch-board post --sender manager-1 --to manager-1 --channel agent:manager-1 --kind stop --body "retire"
-autoresearch/bin/autoresearch-team set-agent-status --agent-id manager-1 --status dead
+autoresearch/bin/autoresearch-board --experiment matmul_reference post --sender manager-1 --to manager-1 --channel agent:manager-1 --kind stop --body "retire"
+autoresearch/bin/autoresearch-team --experiment matmul_reference set-agent-status --agent-id manager-1 --status dead
 ```
 
 ## Research Memory
 
 The researcher agent should not put paper chatter in the team DB. It writes to
-`autoresearch/matmul_journal/research_memory.db`, which has:
+the active experiment's `journal/research_memory.db`, which has:
 
 - `papers`: source URL, arXiv ID, title, authors, abstract, tags;
 - `paper_notes`: TLDR, Intuition, Empirics, Details, key claims, relevance;
@@ -119,11 +120,11 @@ works offline; real embedding backends can replace `hashed_embedding` later.
 Researcher tooling:
 
 ```bash
-autoresearch/bin/autoresearch-memory fetch-arxiv 1706.03762 --max-results 1
-autoresearch/bin/autoresearch-memory fetch-arxiv 'cat:cs.DC AND matmul' --max-results 5
-autoresearch/bin/autoresearch-memory add-task --query 'blocked matrix multiplication memory schedule'
-autoresearch/bin/autoresearch-memory add-note --paper-id paper-001 --tldr '...' --relevance '...'
-autoresearch/bin/autoresearch-memory import-aria-csv /Users/sbae703/dev/aria/scripts/data/notion-papers.csv
+autoresearch/bin/autoresearch-memory --experiment matmul_reference fetch-arxiv 1706.03762 --max-results 1
+autoresearch/bin/autoresearch-memory --experiment matmul_reference fetch-arxiv 'cat:cs.DC AND matmul' --max-results 5
+autoresearch/bin/autoresearch-memory --experiment matmul_reference add-task --query 'blocked matrix multiplication memory schedule'
+autoresearch/bin/autoresearch-memory --experiment matmul_reference add-note --paper-id paper-001 --tldr '...' --relevance '...'
+autoresearch/bin/autoresearch-memory --experiment matmul_reference import-aria-csv /path/to/notion-papers.csv
 ```
 
 If the launcher gives agents MCP web/arXiv tools, the researcher can use those
@@ -135,7 +136,7 @@ Matmul blind runs must not use prior frontier artifacts, old raw traces, or
 copied mechanisms from the journal repo. The default loop is blind:
 
 ```bash
-autoresearch/bin/autoresearch-matmul-loop --run-id blind_quick_v1
+autoresearch/bin/autoresearch-matmul-loop --experiment matmul_reference --run-id blind_quick_v1
 ```
 
 The copied trace-allocation mechanism is gated behind

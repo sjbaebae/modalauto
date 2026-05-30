@@ -8,7 +8,8 @@
 
   function buildOps(node) {
     const cand = node.candidate || '';
-    const m = cand.match(/(\d+)x(\d+)x(\d+)/);
+    // Accept both 3-number IR names (4x2x1) and real 2-number panel names (8x4).
+    const m = cand.match(/(\d+)x(\d+)(?:x(\d+))?/);
     let pw = m ? Math.max(1, Math.min(8, +m[1])) : 2;
     let ph = m ? Math.max(1, Math.min(8, +m[2])) : 2;
     if (node.family === 'baseline') { pw = 4; ph = 4; }

@@ -91,8 +91,15 @@
         React.createElement('div', { className: 'snap-m' }, React.createElement('span', { className: 'snap-mk' }, 'Δ step'), React.createElement('span', { className: 'snap-mv mono', style: { color: d == null ? 'var(--ink-3)' : d < 0 ? 'var(--ok)' : 'var(--bad)' } }, d == null ? '—' : (d < 0 ? '▼ ' : '▲ ') + fmt(Math.abs(d)))),
         React.createElement('div', { className: 'snap-m' }, React.createElement('span', { className: 'snap-mk' }, 'family'), React.createElement('span', { className: 'snap-mv mono' }, node.family))),
       React.createElement('div', { className: 'snap-run-wrap' }, React.createElement(window.RunPlayback, { node, speed, key: node.id })),
-      React.createElement('div', { className: 'block-label', style: { margin: '4px 0 6px' } }, 'candidate IR'),
-      React.createElement('pre', { className: 'well ir' }, genIR(node)));
+      // Real submitted code when available (from the journal artifact); fall back
+      // to a representative IR only for mock/codeless nodes.
+      node.code
+        ? React.createElement(React.Fragment, null,
+            React.createElement('div', { className: 'block-label', style: { margin: '4px 0 6px' } }, 'candidate code · ' + (node.codeLang || 'python')),
+            React.createElement('pre', { className: 'well ir' }, node.code))
+        : React.createElement(React.Fragment, null,
+            React.createElement('div', { className: 'block-label', style: { margin: '4px 0 6px' } }, 'candidate IR · representative'),
+            React.createElement('pre', { className: 'well ir' }, genIR(node))));
   }
 
   // ---- right diff panel ----

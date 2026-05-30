@@ -1,0 +1,16 @@
+{
+  "name": "matmul_reference",
+  "description": "Reference 16x16 matmul optimization workflow for the autoresearch loop.",
+  "domain": "matmul",
+  "runner": {
+    "command": "experiments/matmul_reference/loop.py",
+    "args": [
+      "--experiment-root",
+      "{experiment_root}"
+    ]
+  },
+  "paths": {
+    "journal": "journal",
+    "worktrees": "worktrees"
+  }
+}

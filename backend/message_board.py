@@ -4,7 +4,7 @@
 This is intentionally separate from the SQLite journal. The journal is durable
 state; this board is lightweight coordination: handoffs, nudges, stop requests,
 and manager scale actions. Messages are append-only JSONL files under
-`autoresearch/matmul_journal/messages/`.
+an experiment's `journal/messages/` directory.
 """
 
 from __future__ import annotations
@@ -16,9 +16,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from autoresearch import experiment_config
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_BOARD = REPO_ROOT / "autoresearch" / "matmul_journal" / "messages"
+DEFAULT_BOARD = experiment_config.DEFAULT_BOARD
 
 
 def now() -> str:
@@ -139,7 +141,9 @@ def cmd_watch(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--board", type=Path, default=DEFAULT_BOARD)
+    parser.add_argument("--experiment", help="experiment name under experiments/")
+    parser.add_argument("--experiment-root", type=Path, help="experiment directory containing journal/ and worktrees/")
+    parser.add_argument("--board", type=Path)
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_post = sub.add_parser("post")
@@ -175,6 +179,9 @@ def main(argv: list[str] | None = None) -> int:
     p_watch.set_defaults(func=cmd_watch)
 
     args = parser.parse_args(argv)
+    exp = experiment_config.layout(args.experiment, args.experiment_root)
+    args.experiment_root = exp.root
+    args.board = (args.board or exp.board_dir).expanduser().resolve()
     return args.func(args)
 
 

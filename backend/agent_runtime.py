@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autonomous agent runtime for the matmul autoresearch system.
+"""Autonomous agent runtime for autoresearch experiments.
 
 Each process owns one role and one worktree. Agents communicate through the
 message board, persist durable work to the team journal, and heartbeat every
@@ -19,11 +19,12 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from autoresearch import experiment_config
 from autoresearch import message_board
 from autoresearch import research_memory
 from autoresearch import team_journal
-from autoresearch.matmul import matmul
-from autoresearch.matmul_loop import buckets, verify_general
+from autoresearch.experiments.matmul_reference.matmul import matmul
+from autoresearch.experiments.matmul_reference.loop import buckets, verify_general
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -74,6 +75,31 @@ def default_agent_id(role: str) -> str:
 
 def fresh_id(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex[:12]}"
+
+
+def runner_command(args: argparse.Namespace, run_id: str, hyp_path: Path) -> list[str]:
+    workflow = experiment_config.load_workflow(args.workflow_path)
+    runner = workflow.get("runner", {}) if isinstance(workflow, dict) else {}
+    command = runner.get("command") or "experiments/matmul_reference/loop.py"
+    command_path = Path(command)
+    if not command_path.is_absolute():
+        command_path = REPO_ROOT / "autoresearch" / command_path
+    base_args = experiment_config.render_workflow_args(runner.get("args", []), args.experiment_layout)
+    return [
+        sys.executable,
+        str(command_path),
+        *base_args,
+        "--run-id",
+        run_id,
+        "--hypothesis-json",
+        str(hyp_path),
+        "--journal-root",
+        str(args.journal_root),
+        "--verify-cases",
+        "4",
+        "--verify-top",
+        "3",
+    ]
 
 
 def connect_team(args: argparse.Namespace):
@@ -1166,20 +1192,7 @@ def run_implementor_step(args: argparse.Namespace) -> None:
             })
     else:
         hyp_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
-    cmd = [
-        sys.executable,
-        str(REPO_ROOT / "autoresearch" / "bin" / "autoresearch-matmul-loop"),
-        "--run-id",
-        run_id,
-        "--hypothesis-json",
-        str(hyp_path),
-        "--journal-root",
-        str(args.worktree_root.parent),
-        "--verify-cases",
-        "4",
-        "--verify-top",
-        "3",
-    ]
+    cmd = runner_command(args, run_id, hyp_path)
     prior_candidates = []
     db = connect_team(args)
     for row in db.execute("SELECT candidate_summary_json FROM submissions ORDER BY created_at DESC LIMIT 200"):
@@ -1398,6 +1411,8 @@ def spawn_agent(args: argparse.Namespace, role: str) -> str:
         sys.executable,
         str(REPO_ROOT / "autoresearch" / "bin" / "autoresearch-agent"),
         role,
+        "--experiment-root",
+        str(args.experiment_root),
         "--agent-id",
         agent_id,
         "--db",
@@ -1408,6 +1423,10 @@ def spawn_agent(args: argparse.Namespace, role: str) -> str:
         str(args.worktree_root),
         "--research-db",
         str(args.research_db),
+        "--journal-root",
+        str(args.journal_root),
+        "--workflow",
+        str(args.workflow_path),
         "--interval",
         str(args.interval),
         "--step-timeout",
@@ -1528,12 +1547,16 @@ def run_step(args: argparse.Namespace) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("role", choices=sorted(ROLES | set(ROLE_ALIASES)))
+    parser.add_argument("--experiment", help="experiment name under experiments/")
+    parser.add_argument("--experiment-root", type=Path, help="experiment directory containing journal/ and worktrees/")
     parser.add_argument("--agent-id")
     parser.add_argument("--team-id", default="global")
-    parser.add_argument("--db", type=Path, default=team_journal.DEFAULT_DB)
-    parser.add_argument("--research-db", type=Path, default=research_memory.DEFAULT_DB)
-    parser.add_argument("--board", type=Path, default=message_board.DEFAULT_BOARD)
-    parser.add_argument("--worktree-root", type=Path, default=team_journal.DEFAULT_WORKTREE_ROOT)
+    parser.add_argument("--db", type=Path)
+    parser.add_argument("--research-db", type=Path)
+    parser.add_argument("--board", type=Path)
+    parser.add_argument("--journal-root", type=Path)
+    parser.add_argument("--worktree-root", type=Path)
+    parser.add_argument("--workflow", type=Path)
     parser.add_argument("--worktree", type=Path)
     parser.add_argument("--interval", type=float, default=5.0)
     parser.add_argument("--max-steps", type=int)
@@ -1548,10 +1571,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--disable-meta-operator", action="store_true")
     args = parser.parse_args(argv)
 
-    args.db = args.db.expanduser().resolve()
-    args.research_db = args.research_db.expanduser().resolve()
-    args.board = args.board.expanduser().resolve()
-    args.worktree_root = args.worktree_root.expanduser().resolve()
+    exp = experiment_config.layout(args.experiment, args.experiment_root)
+    args.experiment_layout = exp
+    args.experiment_root = exp.root
+    args.db = (args.db or exp.team_db).expanduser().resolve()
+    args.research_db = (args.research_db or exp.research_db).expanduser().resolve()
+    args.board = (args.board or exp.board_dir).expanduser().resolve()
+    args.journal_root = (args.journal_root or exp.journal_dir).expanduser().resolve()
+    args.worktree_root = (args.worktree_root or exp.worktree_root).expanduser().resolve()
+    args.workflow_path = (args.workflow or exp.workflow_path).expanduser().resolve()
     if args.worktree:
         args.worktree = args.worktree.expanduser().resolve()
 
