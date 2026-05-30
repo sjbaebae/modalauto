@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore")
 import numpy as np
 
 # Make `autoresearch` importable when this module is run as a script
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from autoresearch.backend import experiment_config, team_journal
 from autoresearch.experiments.evogym_walker.walker import scorer as evo_scorer
@@ -38,7 +38,7 @@ from autoresearch.experiments.evogym_walker.walker.candidates import Candidate
 SCORE_SCALE = 10000
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LAYOUT = experiment_config.layout("evogym_walker")
 JOURNAL_ROOT = DEFAULT_LAYOUT.journal_dir
 
