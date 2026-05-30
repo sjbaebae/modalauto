@@ -1,0 +1,18 @@
+{
+  "best_frontier": {
+    "artifact_path": "/Users/sbae703/Research/hackathons/modal/autoresearch/matmul_journal/artifacts/impl-40a165b8_hyp-9f712ae0291c_20260530T183254Z/best.ir",
+    "created_at": "2026-05-30T18:32:56.491660+00:00",
+    "hypothesis_id": "hyp-9f712ae0291c",
+    "official_score": 73602,
+    "submission_id": "sub-6da69fe42254",
+    "title": "Meta-operator: low-address hot-read schedule"
+  },
+  "insight": "If many recent submissions share the same family/score, force broader loop-order and address-layout reasoning before more implementation.",
+  "operator": "enumerate_panels",
+  "recent_best": 73602,
+  "recent_families": {
+    "panel": 6,
+    "scratch_layout_search": 14
+  },
+  "strategy": "baseline"
+}

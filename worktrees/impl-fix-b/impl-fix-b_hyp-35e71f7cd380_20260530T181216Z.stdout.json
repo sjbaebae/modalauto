@@ -1,0 +1,17 @@
+{
+  "artifact_dir": "/Users/sbae703/Research/hackathons/modal/autoresearch/matmul_journal/artifacts/impl-fix-b_hyp-35e71f7cd380_20260530T181216Z",
+  "best": {
+    "add_reads": 26160,
+    "copy_reads": 25200,
+    "error": "",
+    "family": "dead_input_output_reuse",
+    "mul_reads": 14336,
+    "name": "dead_input_outputs_packed",
+    "notes": "",
+    "ops": 9696,
+    "output_reads": 4357,
+    "score": 70053,
+    "semantic": "ok"
+  },
+  "elapsed_seconds": 0.652
+}

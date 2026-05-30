@@ -1,0 +1,53 @@
+{
+  "dominant_family": "scratch_layout_search",
+  "low_address_roles": [
+    "input_cache",
+    "multiply_tmp",
+    "strip",
+    "accumulators"
+  ],
+  "operator": "enumerate_schedule_family",
+  "recipient_frontier": {
+    "loop_order": [
+      "i_block",
+      "j_block",
+      "k",
+      "j_inner",
+      "i_inner"
+    ],
+    "low_address_roles": [
+      "other_input_cache",
+      "multiply_tmp",
+      "input_strip",
+      "accumulators"
+    ],
+    "operator": "schedule_from_reasoning",
+    "reuse_goal": "hold one B value while sweeping several A rows",
+    "tile": {
+      "i": 4,
+      "j": 8
+    },
+    "tool_kind": null
+  },
+  "reuse_goals": [
+    "hold_A_sweep_B",
+    "hold_B_sweep_A"
+  ],
+  "strategy": "baseline",
+  "tiles": [
+    {
+      "i": 8,
+      "j": 4
+    },
+    {
+      "i": 4,
+      "j": 8
+    },
+    {
+      "i": 4,
+      "j": 4
+    }
+  ],
+  "transfer_from": "hyp-b5d19e16495c",
+  "transfer_to": "hyp-c80ecec34178"
+}

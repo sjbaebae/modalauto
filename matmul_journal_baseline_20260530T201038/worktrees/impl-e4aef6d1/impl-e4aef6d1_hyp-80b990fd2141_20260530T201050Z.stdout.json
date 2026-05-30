@@ -1,0 +1,17 @@
+{
+  "artifact_dir": "/Users/sbae703/research/hackathons/modal/autoresearch/matmul_journal_baseline_20260530T201038/artifacts/impl-e4aef6d1_hyp-80b990fd2141_20260530T201050Z",
+  "best": {
+    "add_reads": 24480,
+    "copy_reads": 69812,
+    "error": "",
+    "family": "panel",
+    "mul_reads": 28672,
+    "name": "panel_4x2x1_a0b1",
+    "notes": "",
+    "ops": 13312,
+    "output_reads": 6653,
+    "score": 129617,
+    "semantic": "ok"
+  },
+  "elapsed_seconds": 1.437
+}

@@ -1,0 +1,17 @@
+{
+  "artifact_dir": "/Users/sbae703/research/hackathons/modal/autoresearch/matmul_journal_clean_final_20260530T195444/artifacts/impl-7c6ed292_hyp-f9b7f81fd458_20260530T195532Z",
+  "best": {
+    "add_reads": 104100,
+    "copy_reads": 28842,
+    "error": "",
+    "family": "tiled",
+    "mul_reads": 65920,
+    "name": "tiled_8x8",
+    "notes": "",
+    "ops": 9472,
+    "output_reads": 7502,
+    "score": 206364,
+    "semantic": "ok"
+  },
+  "elapsed_seconds": 5.941
+}

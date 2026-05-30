@@ -1,0 +1,36 @@
+{
+  "best": {
+    "add_reads": 26160,
+    "copy_reads": 25200,
+    "error": "",
+    "family": "dead_input_output_reuse",
+    "mul_reads": 14336,
+    "name": "dead_input_outputs_packed",
+    "notes": "",
+    "ops": 9696,
+    "output_reads": 4357,
+    "score": 70053,
+    "semantic": "ok"
+  },
+  "blind": true,
+  "candidate_count": 17,
+  "created_at": "2026-05-30T18:11:27.452543+00:00",
+  "families": [
+    "baseline",
+    "dead_input_output_reuse",
+    "panel",
+    "tiled"
+  ],
+  "next_handoff": {
+    "allowed_regressions": "allow output-read regressions when copy/mul/add reads fall more",
+    "failed_total_cost_movement": "output-low and multiply-count-only proxies were misleading in the source journal",
+    "next_role": "local_optimizer",
+    "target_gap": 3346,
+    "untested_cost_movement": "dead input/output storage reuse after each k-panel"
+  },
+  "run_id": "strategy_smoke_dead",
+  "strategy": "dead_io",
+  "target": 66707,
+  "target_status": "continuing",
+  "uses_reference_mechanisms": false
+}

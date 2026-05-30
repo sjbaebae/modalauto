@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/Users/sbae703/Research/hackathons/modal/bin/autoresearch-agent", line 13, in <module>
+    raise SystemExit(main())
+  File "/Users/sbae703/Research/hackathons/modal/autoresearch/agent_runtime.py", line 609, in main
+    run_step(args)
+  File "/Users/sbae703/Research/hackathons/modal/autoresearch/agent_runtime.py", line 562, in run_step
+    run_creative_step(args)
+  File "/Users/sbae703/Research/hackathons/modal/autoresearch/agent_runtime.py", line 237, in run_creative_step
+    result = propose_hypothesis(args, radical=False)
+  File "/Users/sbae703/Research/hackathons/modal/autoresearch/agent_runtime.py", line 209, in propose_hypothesis
+    db.execute(
+sqlite3.OperationalError: database is locked

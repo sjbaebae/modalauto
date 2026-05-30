@@ -1,0 +1,29 @@
+{
+  "best_frontier": {},
+  "created_by": "meta_agent",
+  "loop_order": [
+    "i_block",
+    "j_block",
+    "k",
+    "i_inner",
+    "j_inner"
+  ],
+  "low_address_roles": [
+    "single_input_cache",
+    "multiply_tmp",
+    "other_input_strip",
+    "accumulators"
+  ],
+  "observed_families": {
+    "scratch_layout_search": 4
+  },
+  "operator": "schedule_from_reasoning",
+  "reuse_goal": "hold one frequently reused input value while sweeping several values from the other input",
+  "source_insight_id": "hyp-d05abe66e84c",
+  "strategy": "baseline",
+  "tile": {
+    "i": 8,
+    "j": 4
+  },
+  "why": "Recent submissions are dominated by duplicate panel schedules; build a generic low-address hot-read schedule operator."
+}

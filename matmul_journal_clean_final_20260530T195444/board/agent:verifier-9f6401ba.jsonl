@@ -1,0 +1,2 @@
+{"body": "retire requested by manager", "channel": "agent:verifier-9f6401ba", "created_at": "2026-05-30T19:55:47.387480+00:00", "from": "manager-final", "id": "msg-4b60992636c2", "kind": "stop", "payload": {"role": "verifier"}, "to": "verifier-9f6401ba"}
+{"body": "retire requested by manager", "channel": "agent:verifier-9f6401ba", "created_at": "2026-05-30T19:55:47.405989+00:00", "from": "manager-final", "id": "msg-9706ba9e4382", "kind": "stop", "payload": {"role": "verifier"}, "to": "verifier-9f6401ba"}

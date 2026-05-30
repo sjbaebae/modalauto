@@ -1,0 +1,82 @@
+{
+  "generated_by": "meta_tool",
+  "low_address_roles": [
+    "dead_storage_candidates",
+    "accumulators",
+    "temporary_product"
+  ],
+  "operator": "enumerate_schedule_family",
+  "reuse_goals": [
+    "detect_dead_storage",
+    "probe_output_aliasing",
+    "reduce_output_read_cost"
+  ],
+  "source_capability": {
+    "best_frontier": {
+      "artifact_path": "/Users/sbae703/Research/hackathons/modal/autoresearch/matmul_journal/artifacts/impl-f009a8fa_hyp-f2ba61cacb4c_20260530T194106Z/best.ir",
+      "created_at": "2026-05-30T19:41:15.569448+00:00",
+      "hypothesis_id": "hyp-f2ba61cacb4c",
+      "official_score": 73602,
+      "submission_id": "sub-ea975929f1bb",
+      "title": "Use promoted meta tool to escape plateau"
+    },
+    "created_by": "meta_agent",
+    "diversity": {
+      "dominant_count": 36,
+      "dominant_family": "panel",
+      "recent_families": {
+        "panel": 36,
+        "scratch_layout_search": 3
+      }
+    },
+    "goal": "improve top-line frontier or loop throughput",
+    "interface": {
+      "inputs": [
+        "best_artifact",
+        "recent_scores",
+        "recent_families",
+        "hypothesis_context",
+        "research_notes"
+      ],
+      "outputs": [
+        "candidate_generator_or_ir_transform",
+        "candidate_summary",
+        "operator_limits"
+      ]
+    },
+    "observed_bottlenecks": [
+      "frontier_plateau_with_low_result_diversity",
+      "verification_backlog"
+    ],
+    "operator": "meta_capability_spec",
+    "promoted_tool": {
+      "signature": "52bc52be2add0707",
+      "tool_id": "tool-2bd819de27de",
+      "tool_path": "/Users/sbae703/Research/hackathons/modal/autoresearch/worktrees/meta-496d88c9/tools/tool-2bd819de27de/generate_hypothesis.py"
+    },
+    "proposed_capability": "create a new generic operator that changes the representation or search neighborhood when recent accepted submissions are dominated by one family",
+    "prototype_plan": [
+      "inspect the best candidate and score buckets",
+      "identify the hottest repeated reads or most expensive storage class",
+      "construct a small reversible transform or generator that changes that bottleneck",
+      "test against semantic verifier before publishing"
+    ],
+    "tool_kind": "liveness_reuse_probe",
+    "topline": {
+      "best_score": 73602,
+      "pending_verification": 12,
+      "queued_hypotheses": 32,
+      "recent_best": 73602
+    }
+  },
+  "tiles": [
+    {
+      "i": 4,
+      "j": 8
+    },
+    {
+      "i": 8,
+      "j": 4
+    }
+  ]
+}

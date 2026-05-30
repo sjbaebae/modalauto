@@ -1,0 +1,22 @@
+{
+  "loop_order": [
+    "i_block",
+    "j_block",
+    "k",
+    "i_inner",
+    "j_inner"
+  ],
+  "low_address_roles": [
+    "single_input_cache",
+    "multiply_tmp",
+    "other_input_strip",
+    "accumulators"
+  ],
+  "operator": "schedule_from_reasoning",
+  "reuse_goal": "hold one A value while sweeping several B columns",
+  "strategy": "baseline",
+  "tile": {
+    "i": 8,
+    "j": 4
+  }
+}

@@ -1,0 +1,17 @@
+add_reads,copy_reads,error,family,mul_reads,name,notes,ops,output_reads,score,semantic
+24480,45988,,panel,31744,panel_4x2x1_a1b1,,11264,6668,108880,duplicate
+31200,34676,,panel,40960,panel_4x4x1_a1b1,,10240,6719,113555,ok
+24480,54588,,panel,30720,panel_2x4x1_a1b1,,11264,6668,116456,ok
+35040,37058,,panel,43008,panel_8x2x1_a1b1,,10752,6729,121835,ok
+29760,67920,,tiled,19456,tiled_2x2,,12544,6658,123794,unchecked
+24480,69812,,panel,28672,panel_4x2x1_a0b1,,13312,6653,129617,unchecked
+52800,39072,,tiled,35072,tiled_4x4,copied baseline tiled generator,10496,6839,133783,unchecked
+31200,61312,,panel,40960,panel_8x2x1_a0b1,,12800,6694,140166,unchecked
+24480,91112,,panel,28672,panel_2x4x1_a0b1,,14336,6663,150927,unchecked
+31200,72248,,panel,40960,panel_4x4x1_a0b1,,13312,6704,151112,unchecked
+24480,95864,,panel,30720,panel_2x4x1_a1b0,,13312,6653,157717,unchecked
+24480,108368,,panel,31744,panel_4x2x1_a1b0,,14336,6663,171255,unchecked
+31200,97592,,panel,40960,panel_4x4x1_a1b0,,13312,6704,176456,unchecked
+35040,111016,,panel,40960,panel_8x2x1_a1b0,,14336,6724,193740,unchecked
+104100,28842,,tiled,65920,tiled_8x8,,9472,7502,206364,unchecked
+206415,,,baseline,127696,baseline_16x16,naive triple loop,7936,6593,340704,unchecked

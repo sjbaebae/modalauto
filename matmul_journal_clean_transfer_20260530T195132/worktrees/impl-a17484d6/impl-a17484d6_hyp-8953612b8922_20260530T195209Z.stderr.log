@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/Users/sbae703/Research/hackathons/modal/bin/autoresearch-matmul-loop", line 13, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/Users/sbae703/Research/hackathons/modal/autoresearch/matmul_loop.py", line 652, in main
+    artifact_dir = write_run(
+                   ^^^^^^^^^^
+  File "/Users/sbae703/Research/hackathons/modal/autoresearch/matmul_loop.py", line 548, in write_run
+    raise RuntimeError("no valid candidate found")
+RuntimeError: no valid candidate found

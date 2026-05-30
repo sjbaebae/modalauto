@@ -1,0 +1,1 @@
+{"body": "retire requested by manager", "channel": "agent:global-187b3d15", "created_at": "2026-05-30T20:10:46.480837+00:00", "from": "manager-baseline", "id": "msg-4e3b91ef43e3", "kind": "stop", "payload": {"role": "global_searcher"}, "to": "global-187b3d15"}

@@ -1,0 +1,17 @@
+{
+  "artifact_dir": "/Users/sbae703/research/hackathons/modal/autoresearch/matmul_journal_clean_final_20260530T195444/artifacts/impl-44c30eb4_hyp-80597b26552c_20260530T195508Z",
+  "best": {
+    "add_reads": 52800,
+    "copy_reads": 39072,
+    "error": "",
+    "family": "tiled",
+    "mul_reads": 35072,
+    "name": "tiled_4x4",
+    "notes": "copied baseline tiled generator",
+    "ops": 10496,
+    "output_reads": 6839,
+    "score": 133783,
+    "semantic": "ok"
+  },
+  "elapsed_seconds": 2.947
+}

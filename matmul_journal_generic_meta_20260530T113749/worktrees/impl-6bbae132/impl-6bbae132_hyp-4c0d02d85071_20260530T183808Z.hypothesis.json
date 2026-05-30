@@ -1,0 +1,18 @@
+{
+  "best_frontier": {
+    "artifact_path": "/Users/sbae703/Research/hackathons/modal/autoresearch/matmul_journal/artifacts/impl-35da86b0_hyp-2eab51360a26_20260530T183752Z/best.ir",
+    "created_at": "2026-05-30T18:37:56.647110+00:00",
+    "hypothesis_id": "hyp-2eab51360a26",
+    "official_score": 73602,
+    "submission_id": "sub-95735c8f5021",
+    "title": "Search hot-read scratch layouts from first principles"
+  },
+  "insight": "If many recent submissions share the same family/score, force broader loop-order and address-layout reasoning before more implementation.",
+  "operator": "enumerate_panels",
+  "recent_best": 73602,
+  "recent_families": {
+    "panel": 4,
+    "scratch_layout_search": 8
+  },
+  "strategy": "baseline"
+}

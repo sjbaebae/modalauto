@@ -1,0 +1,19 @@
+{
+  "name": "mae-paper-visualization",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "dev:evoflow": "cd evoflow && python3 scripts/serve_evoflow.py"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "three": "^0.181.2",
+    "vite": "^8.0.14"
+  },
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
+}

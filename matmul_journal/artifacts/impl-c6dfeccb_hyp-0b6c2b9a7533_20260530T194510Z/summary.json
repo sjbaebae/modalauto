@@ -1,0 +1,54 @@
+{
+  "avoided_candidates": [
+    "panel_2x4x1_a0b1",
+    "panel_2x4x1_a1b0",
+    "panel_2x4x1_a1b1",
+    "panel_4x2x1_a0b1",
+    "panel_4x2x1_a1b0",
+    "panel_4x2x1_a1b1",
+    "panel_4x4x1_a0b1",
+    "panel_4x4x1_a1b0",
+    "panel_4x4x1_a1b1",
+    "panel_8x2x1_a0b1",
+    "panel_8x2x1_a1b0",
+    "panel_8x2x1_a1b1",
+    "scratch_hotread_4x4",
+    "scratch_hotread_8x2",
+    "scratch_hotread_8x4",
+    "tiled_2x2",
+    "tiled_4x4"
+  ],
+  "best": {
+    "add_reads": 104100,
+    "copy_reads": 28842,
+    "error": "",
+    "family": "tiled",
+    "mul_reads": 65920,
+    "name": "tiled_8x8",
+    "notes": "",
+    "ops": 9472,
+    "output_reads": 7502,
+    "score": 206364,
+    "semantic": "ok"
+  },
+  "blind": true,
+  "candidate_count": 16,
+  "created_at": "2026-05-30T19:45:12.547197+00:00",
+  "families": [
+    "baseline",
+    "panel",
+    "tiled"
+  ],
+  "next_handoff": {
+    "allowed_regressions": "allow output-read regressions when copy/mul/add reads fall more",
+    "failed_total_cost_movement": "output-low and multiply-count-only proxies were misleading in the source journal",
+    "next_role": "local_optimizer",
+    "target_gap": 139657,
+    "untested_cost_movement": "dead input/output storage reuse after each k-panel"
+  },
+  "run_id": "impl-c6dfeccb_hyp-0b6c2b9a7533_20260530T194510Z",
+  "strategy": "baseline",
+  "target": 66707,
+  "target_status": "continuing",
+  "uses_reference_mechanisms": false
+}

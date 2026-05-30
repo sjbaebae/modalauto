@@ -1,0 +1,2 @@
+{"body": "retire requested by manager", "channel": "agent:global-d2e31deb", "created_at": "2026-05-30T18:37:54.263176+00:00", "from": "generic-meta-manager-a", "id": "msg-ceca37cd8bfa", "kind": "stop", "payload": {"role": "global_searcher"}, "to": "global-d2e31deb"}
+{"body": "retire requested by manager", "channel": "agent:global-d2e31deb", "created_at": "2026-05-30T18:37:54.271760+00:00", "from": "generic-meta-manager-a", "id": "msg-dfa14403c2a9", "kind": "stop", "payload": {"role": "global_searcher"}, "to": "global-d2e31deb"}

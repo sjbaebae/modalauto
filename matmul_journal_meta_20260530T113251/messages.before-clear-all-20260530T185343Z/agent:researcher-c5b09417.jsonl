@@ -1,0 +1,2 @@
+{"body": "retire requested by manager", "channel": "agent:researcher-c5b09417", "created_at": "2026-05-30T18:32:54.267811+00:00", "from": "meta-manager-b", "id": "msg-e8ddd8194432", "kind": "stop", "payload": {"role": "researcher"}, "to": "researcher-c5b09417"}
+{"body": "retire requested by manager", "channel": "agent:researcher-c5b09417", "created_at": "2026-05-30T18:32:54.276186+00:00", "from": "meta-manager-b", "id": "msg-b399e3038f43", "kind": "stop", "payload": {"role": "researcher"}, "to": "researcher-c5b09417"}

@@ -1,0 +1,2 @@
+{"body": "retire requested by manager", "channel": "agent:explorer-2a53b884", "created_at": "2026-05-30T19:51:33.351411+00:00", "from": "manager-clean", "id": "msg-0cb55d88c055", "kind": "stop", "payload": {"role": "creative_explorer"}, "to": "explorer-2a53b884"}
+{"body": "retire requested by manager", "channel": "agent:explorer-2a53b884", "created_at": "2026-05-30T19:51:33.354550+00:00", "from": "manager-clean", "id": "msg-6050b3c5f6f4", "kind": "stop", "payload": {"role": "creative_explorer"}, "to": "explorer-2a53b884"}

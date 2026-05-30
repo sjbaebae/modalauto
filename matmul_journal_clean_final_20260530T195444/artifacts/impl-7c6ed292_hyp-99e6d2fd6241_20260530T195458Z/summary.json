@@ -1,0 +1,46 @@
+{
+  "avoided_candidates": [
+    "panel_2x4x1_a1b1",
+    "panel_4x2x1_a1b1",
+    "panel_4x4x1_a1b1",
+    "panel_8x2x1_a1b1",
+    "scratch_hotread_4x4",
+    "scratch_hotread_4x8",
+    "scratch_hotread_8x2",
+    "scratch_hotread_8x4"
+  ],
+  "best": {
+    "add_reads": 25680,
+    "copy_reads": 49914,
+    "error": "",
+    "family": "scratch_layout_search",
+    "mul_reads": 15872,
+    "name": "scratch_hotread_2x8",
+    "notes": "generic hot-read low-address cache schedule",
+    "ops": 10752,
+    "output_reads": 6724,
+    "score": 98190,
+    "semantic": "ok"
+  },
+  "blind": true,
+  "candidate_count": 21,
+  "created_at": "2026-05-30T19:55:02.401887+00:00",
+  "families": [
+    "baseline",
+    "panel",
+    "scratch_layout_search",
+    "tiled"
+  ],
+  "next_handoff": {
+    "allowed_regressions": "allow output-read regressions when copy/mul/add reads fall more",
+    "failed_total_cost_movement": "output-low and multiply-count-only proxies were misleading in the source journal",
+    "next_role": "local_optimizer",
+    "target_gap": 31483,
+    "untested_cost_movement": "dead input/output storage reuse after each k-panel"
+  },
+  "run_id": "impl-7c6ed292_hyp-99e6d2fd6241_20260530T195458Z",
+  "strategy": "hypothesis_schedule",
+  "target": 66707,
+  "target_status": "continuing",
+  "uses_reference_mechanisms": false
+}

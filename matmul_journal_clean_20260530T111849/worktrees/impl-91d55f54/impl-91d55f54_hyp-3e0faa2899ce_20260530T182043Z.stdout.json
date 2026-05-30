@@ -1,0 +1,17 @@
+{
+  "artifact_dir": "/Users/sbae703/Research/hackathons/modal/autoresearch/matmul_journal/artifacts/impl-91d55f54_hyp-3e0faa2899ce_20260530T182043Z",
+  "best": {
+    "add_reads": 27120,
+    "copy_reads": 25362,
+    "error": "",
+    "family": "scratch_layout_search",
+    "mul_reads": 14336,
+    "name": "scratch_hotread_8x4",
+    "notes": "generic hot-read low-address cache schedule",
+    "ops": 9728,
+    "output_reads": 6784,
+    "score": 73602,
+    "semantic": "ok"
+  },
+  "elapsed_seconds": 1.061
+}

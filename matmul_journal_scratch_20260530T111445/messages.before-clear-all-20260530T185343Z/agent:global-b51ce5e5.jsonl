@@ -1,0 +1,1 @@
+{"body": "retire requested by manager", "channel": "agent:global-b51ce5e5", "created_at": "2026-05-30T18:14:47.605995+00:00", "from": "scratch-manager-b", "id": "msg-5e395384ae19", "kind": "stop", "payload": {"role": "global_searcher"}, "to": "global-b51ce5e5"}
