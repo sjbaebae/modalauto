@@ -227,8 +227,12 @@
 .artifact-kind { font-family: var(--font-mono); font-size: 9px; color: var(--ink-3); text-transform: uppercase; }
 .artifact-name { font-family: var(--font-mono); font-size: var(--fs-tiny); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .artifact-size { font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); }
-.artifact-images { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.artifact-images img { width: 100%; aspect-ratio: 1; object-fit: contain; border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--surface-inset); }
+.artifact-media { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.artifact-media img,
+.artifact-media video { width: 100%; aspect-ratio: 1; object-fit: contain; border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--surface-inset); }
+.artifact-media.solo { grid-template-columns: 1fr; }
+.artifact-media.solo img { aspect-ratio: 16 / 9; }
+.artifact-media video { grid-column: 1 / -1; aspect-ratio: 16 / 9; }
 .artifact-preview { margin: 0; max-height: 190px; overflow: auto; padding: 10px; border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--surface-inset); color: var(--ink-1); font-family: var(--font-mono); font-size: 10.5px; line-height: 1.45; white-space: pre-wrap; }
 .voxel-grid { display: grid; gap: 3px; width: min(100%, 260px); aspect-ratio: 1; padding: 6px; border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-inset); }
 .voxel { min-width: 0; min-height: 0; border-radius: 3px; border: 1px solid color-mix(in oklch, var(--surface-0) 65%, transparent); }

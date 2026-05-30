@@ -188,6 +188,8 @@ def file_kind(path: Path) -> str:
     suffix = path.suffix.lower()
     if suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
         return "image"
+    if suffix in {".mp4", ".webm", ".mov", ".m4v"}:
+        return "video"
     if suffix == ".json":
         return "json"
     if suffix in {".csv", ".tsv"}:
@@ -245,7 +247,14 @@ def artifact_details(journal: Path, artifact_path_value, summary: dict, raw_buck
         p = artifact_root / name
         if p.exists() and p not in wanted:
             wanted.append(p)
-    for pattern in ["*.png", "*.gif", "*.webp", "viz/*.png", "viz/*.gif", "viz/*.webp"]:
+    stem = path.stem
+    media_patterns = [
+        f"{stem}.png", f"{stem}.jpg", f"{stem}.jpeg", f"{stem}.gif", f"{stem}.webp",
+        f"{stem}.mp4", f"{stem}.webm", f"{stem}.mov", f"{stem}.m4v",
+        f"viz/{stem}.png", f"viz/{stem}.jpg", f"viz/{stem}.jpeg", f"viz/{stem}.gif", f"viz/{stem}.webp",
+        f"viz/{stem}.mp4", f"viz/{stem}.webm", f"viz/{stem}.mov", f"viz/{stem}.m4v",
+    ]
+    for pattern in media_patterns:
         for p in sorted(artifact_root.glob(pattern)):
             if p.exists() and p not in wanted:
                 wanted.append(p)
@@ -266,6 +275,7 @@ def artifact_details(journal: Path, artifact_path_value, summary: dict, raw_buck
         "kind": "voxel_body" if body else file_kind(path),
         "files": [file_item(p) for p in wanted if p.exists()],
         "images": [file_item(p) for p in wanted if p.exists() and file_kind(p) == "image"],
+        "videos": [file_item(p) for p in wanted if p.exists() and file_kind(p) == "video"],
         "body": body,
         "preview": text_preview(path),
         "metrics": metrics,

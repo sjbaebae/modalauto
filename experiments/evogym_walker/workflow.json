@@ -11,6 +11,10 @@
       "label": "Body"
     },
     {
+      "type": "rollout_media",
+      "label": "Rollout"
+    },
+    {
       "type": "metrics",
       "label": "Evaluation"
     },
