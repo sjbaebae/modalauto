@@ -132,15 +132,10 @@
 
   function ArtifactFiles({ artifact }) {
     const files = artifact && Array.isArray(artifact.files) ? artifact.files : [];
-    const images = artifact && Array.isArray(artifact.images) ? artifact.images : [];
     if (!files.length) return <div className="insp-meta">No artifact files.</div>;
     return (
       <div className="artifact-view">
-        {images.length ? <div className="artifact-images">
-          {images.slice(0, 4).map((file) => <a key={file.path} href={artifactUrl(file.path)} target="_blank" rel="noreferrer">
-            <img src={artifactUrl(file.path)} alt={file.name} />
-          </a>)}
-        </div> : null}
+        <ArtifactMedia artifact={artifact} empty={null} />
         <div className="artifact-files">
           {files.map((file) => (
             <a key={file.path} className="artifact-file" href={artifactUrl(file.path)} target="_blank" rel="noreferrer">
@@ -151,6 +146,21 @@
           ))}
         </div>
         {artifact.preview ? <pre className="artifact-preview">{artifact.preview}</pre> : null}
+      </div>
+    );
+  }
+
+  function ArtifactMedia({ artifact, empty = <div className="insp-meta">No media artifact.</div> }) {
+    const images = artifact && Array.isArray(artifact.images) ? artifact.images : [];
+    const videos = artifact && Array.isArray(artifact.videos) ? artifact.videos : [];
+    if (!images.length && !videos.length) return empty;
+    const solo = images.length + videos.length === 1;
+    return (
+      <div className={'artifact-media' + (solo ? ' solo' : '')}>
+        {videos.map((file) => <video key={file.path} src={artifactUrl(file.path)} controls muted loop playsInline />)}
+        {images.map((file) => <a key={file.path} href={artifactUrl(file.path)} target="_blank" rel="noreferrer">
+          <img src={artifactUrl(file.path)} alt={file.name} />
+        </a>)}
       </div>
     );
   }
@@ -197,6 +207,11 @@
       const metrics = (artifact && artifact.metrics) || {};
       return <Section key={type} title={title} defaultOpen={true}>
         <MetricRows metrics={metrics} />
+      </Section>;
+    }
+    if (type === 'media' || type === 'artifact_media' || type === 'rollout_media') {
+      return <Section key={type} title={title} defaultOpen={true}>
+        <ArtifactMedia artifact={artifact} />
       </Section>;
     }
     if (type === 'artifact_files') {

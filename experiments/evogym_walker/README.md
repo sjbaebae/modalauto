@@ -55,4 +55,5 @@ AUTORESEARCH_EXPERIMENT=evogym_walker \
 - `summary.json` — run metadata + top-5
 - `best.npy` — winning body grid (numpy)
 - `best.txt` — winning body in EVRH-letter grid form
-- `run.md` — human-readable note
+- `viz/<candidate>.gif` — rendered Walker-v0 rollout for each valid body
+- `journal/runs/<run-id>.md` — human-readable note

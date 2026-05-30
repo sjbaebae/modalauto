@@ -88,6 +88,89 @@ def score_candidates(
     return rows
 
 
+def render_rollout_frames(
+    body: np.ndarray,
+    rollout_steps: int,
+    seed: int,
+    frame_stride: int = 2,
+) -> list[np.ndarray]:
+    """Render a single Walker-v0 rollout for artifact visualization."""
+    import gymnasium as gym
+    import evogym.envs  # noqa: F401
+
+    rng = np.random.default_rng(seed)
+    env = gym.make("Walker-v0", body=body, render_mode="img")
+    frames: list[np.ndarray] = []
+    try:
+        obs, _info = env.reset(seed=seed)
+        n_acts = env.action_space.shape[0]
+        phases = rng.uniform(0, 2 * np.pi, size=n_acts)
+        freq = 0.15
+        for t in range(rollout_steps):
+            raw = 0.5 * (np.sin(freq * t * 2 * np.pi + phases) + 1)
+            a = 0.6 + raw * (1.6 - 0.6)
+            obs, _r, term, trunc, _info = env.step(a)
+            if t % frame_stride == 0:
+                img = env.render()
+                if img is not None:
+                    frames.append(np.asarray(img, dtype=np.uint8))
+            if term or trunc:
+                break
+    finally:
+        env.close()
+    return frames
+
+
+def save_rollout_gif(frames: list[np.ndarray], path: Path, max_w: int = 640) -> bool:
+    if not frames:
+        return False
+    from PIL import Image
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    imgs = []
+    for frame in frames:
+        im = Image.fromarray(frame)
+        if im.width > max_w:
+            scale = max_w / im.width
+            im = im.resize((max_w, int(im.height * scale)), Image.LANCZOS)
+        imgs.append(im)
+    imgs[0].save(
+        path,
+        format="GIF",
+        save_all=True,
+        append_images=imgs[1:],
+        duration=40,
+        loop=0,
+        optimize=True,
+    )
+    return True
+
+
+def write_rollout_media(
+    rows: list[Row],
+    cands: list[Candidate],
+    artifact_dir: Path,
+    seed: int,
+    rollout_steps: int,
+) -> dict[str, str]:
+    media: dict[str, str] = {}
+    errors: dict[str, str] = {}
+    viz_dir = artifact_dir / "viz"
+    for r, c in zip(rows, cands):
+        if r.semantic != "ok":
+            continue
+        try:
+            frames = render_rollout_frames(c.body, rollout_steps, seed)
+            gif_path = viz_dir / f"{c.name}.gif"
+            if save_rollout_gif(frames, gif_path):
+                media[c.name] = str(gif_path)
+        except Exception as exc:
+            errors[c.name] = str(exc)
+    if errors:
+        (artifact_dir / "rollout_errors.json").write_text(json.dumps(errors, indent=2))
+    return media
+
+
 def write_run(
     run_id: str,
     rows: list[Row],
@@ -95,6 +178,7 @@ def write_run(
     journal_root: Path,
     seeds: list[int],
     rollout_steps: int,
+    render_rollouts: bool = True,
 ) -> Path:
     artifact_dir = journal_root / "artifacts" / run_id
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -142,6 +226,19 @@ def write_run(
                          key=lambda r: -r.score)[:5]],
     }
     (artifact_dir / "summary.json").write_text(json.dumps(summary, indent=2))
+
+    rollout_media = {}
+    if render_rollouts:
+        rollout_media = write_rollout_media(
+            rows,
+            cands,
+            artifact_dir,
+            seed=seeds[0] if seeds else 0,
+            rollout_steps=rollout_steps,
+        )
+        if rollout_media:
+            summary["rollout_media"] = rollout_media
+            (artifact_dir / "summary.json").write_text(json.dumps(summary, indent=2))
 
     # Run note follows the journal/runs convention used by the frontend.
     runs_dir = journal_root / "runs"
@@ -233,6 +330,9 @@ def write_journal(
             "n_h_actuators": n_h,
             "n_v_actuators": n_v,
         }
+        rollout_gif = artifact_dir / "viz" / f"{c.name}.gif"
+        if rollout_gif.exists():
+            summary["rollout_gif"] = str(rollout_gif)
         db.execute(
             """
             INSERT INTO submissions
@@ -259,6 +359,8 @@ def write_journal(
             "stochastic": True,
             "seeds": seeds,
         }
+        if rollout_gif.exists():
+            buckets["rollout_gif"] = str(rollout_gif)
         decision = "accept" if r.semantic == "ok" else "reject"
         db.execute(
             """
@@ -289,6 +391,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="agent-provided hypothesis (README runner contract)")
     parser.add_argument("--n-mutations", type=int, default=4,
                         help="extra mutated children of the random batch's first candidate")
+    parser.add_argument("--no-rollout-artifacts", action="store_true",
+                        help="skip rendered rollout GIF artifacts")
     args = parser.parse_args(argv)
 
     # Honor workflow.json --experiment-root substitution
@@ -313,7 +417,8 @@ def main(argv: list[str] | None = None) -> int:
     rows = score_candidates(cands, seeds, args.rollout_steps)
     artifact_dir = write_run(args.run_id, rows, cands,
                               args.journal_root.expanduser().resolve(),
-                              seeds, args.rollout_steps)
+                              seeds, args.rollout_steps,
+                              render_rollouts=not args.no_rollout_artifacts)
     write_journal(args.run_id, rows, cands,
                   args.journal_root.expanduser().resolve(),
                   artifact_dir, seeds, args.rollout_steps,
